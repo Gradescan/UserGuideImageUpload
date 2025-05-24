@@ -42,7 +42,7 @@ namespace ExcelWordImageUploader
         //-----------------------------------------------------------------------------------------
         //-----------------------------------------------------------------------------------------
 
-        private void btnRun_Click(object sender, EventArgs e)
+        private async void btnRun_Click(object sender, EventArgs e)
         {
             string repoFolder = txtRepo.Text.Trim();
             string excelPath = txtExcel.Text.Trim();
@@ -77,15 +77,70 @@ namespace ExcelWordImageUploader
                         continue;
                     }
 
+                    byte[] newImageBytes;
                     using (Stream sourceStream = entry.Open())
-                    using (MemoryStream ms = new MemoryStream())
                     {
-                        sourceStream.CopyTo(ms);
-                        byte[] buffer = ms.ToArray();
-                        bool result = UploadToGitHub(repoFolder, destFileName, buffer).GetAwaiter().GetResult();
+                        using (MemoryStream ms = new MemoryStream())
+                        {
+                            sourceStream.CopyTo(ms);
+                            newImageBytes = ms.ToArray();
+                        }
+                    }
 
-                        if (!result)
-                            Console.WriteLine("Upload failed: " + destFileName);
+                    Bitmap bitmap;
+                    using (var ms = new MemoryStream(newImageBytes))
+                    {
+                        bitmap = new Bitmap(ms);
+                    }
+                    //picBoxNewImage.Image = bitmap;
+                    //label2.Text = destFileName;
+
+                    string owner = "Gradescan";
+                    string repo = "media";
+                    string repoPath = string.Join("/",
+                        repoFolder.Split('/')
+                               .Select(Uri.EscapeDataString)
+                               .Concat(new[] { Uri.EscapeDataString(destFileName) })
+                    );
+
+
+                    string repoPathRaw = $"{repoFolder}/{destFileName}";
+                    string objinfo = await GetFileRepoAsync(owner, repo, repoPathRaw).ConfigureAwait(false);
+                    if (objinfo != null)
+                    {
+                        dynamic obj = JsonConvert.DeserializeObject(objinfo);
+                        string base64 = (string)obj.content;
+                        base64 = base64.Replace("\n", "").Replace("\r", ""); // GitHub adds newlines to base64 output
+
+                        byte[] oldImageBytes = Convert.FromBase64String(base64);
+
+                        //        byte[] fileContent = await DownloadFileFromGitHubAsync("Gradescan", "media", repoPath);
+
+                        using (Stream sourceStream = entry.Open())
+                        {
+                            using (MemoryStream ms = new MemoryStream())
+                            {
+                                sourceStream.CopyTo(ms);
+                                oldImageBytes = ms.ToArray();
+                            }
+                        }
+
+                        using (var ms = new MemoryStream(oldImageBytes))
+                        {
+                            bitmap = new Bitmap(ms);
+                        }
+                        picBoxOldImage.Image = bitmap;
+                    }
+                    else
+                    {
+                        picBoxOldImage.Image = null;
+                    }
+                    bool result = PutFileRepoAsync(repoFolder, destFileName, newImageBytes).GetAwaiter().GetResult();
+
+                    if (!result)
+                    {
+                        Console.WriteLine("Upload failed: " + destFileName);
+                        MessageBox.Show("Upload failed: " + destFileName);
                     }
                 }
 
@@ -99,6 +154,42 @@ namespace ExcelWordImageUploader
             {
                 if (zip != null) zip.Dispose();
                 if (package != null) package.Dispose();
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private async Task<byte[]> DownloadFileFromGitHubAsync(string owner, string repo, string path)
+        {
+            string apiUrl = $"https://api.github.com/repos/{owner}/{repo}/contents/{Uri.EscapeDataString(path)}";
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UploaderApp", "1.0"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", GitHubToken);
+
+                try
+                {
+                    HttpResponseMessage response = await client.GetAsync(apiUrl).ConfigureAwait(false);
+                    string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"GitHub error: {response.StatusCode}");
+                        System.Diagnostics.Debug.WriteLine("Response: " + json);
+                        return null;
+                    }
+
+                    dynamic obj = JsonConvert.DeserializeObject(json);
+                    string base64 = (string)obj.content;
+                    base64 = base64.Replace("\n", "").Replace("\r", ""); // GitHub adds newlines to base64 output
+
+                    byte[] contentBytes = Convert.FromBase64String(base64);
+                    return contentBytes;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("DownloadFileFromGitHubAsync error: " + ex.Message);
+                    return null;
+                }
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -117,28 +208,66 @@ namespace ExcelWordImageUploader
                 );
                 string url = $"https://api.github.com/repos/{owner}/{repo}/contents/{repoPath}";
 
+                string base64 = Convert.ToBase64String(imageBytes);
+
+                string repoPathRaw = $"{repoDir}/{fileName}";
+                string objinfo = await GetFileRepoAsync(owner, repo, repoPathRaw).ConfigureAwait(false);
+                if (objinfo == null)
+                    return false;
+
+                dynamic obj = JsonConvert.DeserializeObject(objinfo);
+                string sha = (string)obj.sha;
+                System.Diagnostics.Debug.WriteLine("SHA: " + sha);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("UploadToGitHub error: " + ex.Message);
+                return false;
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private async Task<bool> PutFileRepoAsync(string repoDir, string fileName, byte[] imageBytes)
+        {
+            try
+            {
+                string owner = "Gradescan";
+                string repo = "media";
+                string repoPath = string.Join("/",
+                    repoDir.Split('/')
+                           .Select(Uri.EscapeDataString)
+                           .Concat(new[] { Uri.EscapeDataString(fileName) })
+                );
+                string url = $"https://api.github.com/repos/{owner}/{repo}/contents/{repoPath}";
+
                 Bitmap bitmap;
                 using (var ms = new MemoryStream(imageBytes))
                 {
                     bitmap = new Bitmap(ms);
                 }
+                picBoxNewImage.Image = bitmap;
+                BeginInvoke((Action)(() => label2.Text = fileName));
 
                 string base64 = Convert.ToBase64String(imageBytes);
 
+                string repoPathRaw = $"{repoDir}/{fileName}";
+                string objinfo = await GetFileRepoAsync(owner, repo, repoPathRaw).ConfigureAwait(false);
+
+                string sha = string.Empty;
+                if (objinfo != null)
+                {
+                    dynamic obj = JsonConvert.DeserializeObject(objinfo);
+                    sha = (string)obj.sha;
+                    System.Diagnostics.Debug.WriteLine("SHA: " + sha);
+                }
                 var payload = new
                 {
                     message = "Auto upload " + fileName,
                     content = base64,
-                    committer = new
-                    {
-                        name = "UploaderBot",
-                        email = "uploader@gradescan.org"
-                    },
-                    author = new
-                    {
-                        name = "UploaderBot",
-                        email = "uploader@gradescan.org"
-                    }
+                    sha = sha, // <- only populated if the file exists
+                    committer = new { name = "UploaderBot", email = "uploader@gradescan.org" },
+                    author = new { name = "UploaderBot", email = "uploader@gradescan.org" }
                 };
 
                 string json = JsonConvert.SerializeObject(payload);
@@ -162,6 +291,40 @@ namespace ExcelWordImageUploader
             {
                 System.Diagnostics.Debug.WriteLine("UploadToGitHub error: " + ex.Message);
                 return false;
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private async Task<string> GetFileRepoAsync(string owner, string repo, string path)
+        {
+            string url = $"https://api.github.com/repos/{owner}/{repo}/contents/{Uri.EscapeDataString(path)}";
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UploaderApp", "1.0"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", GitHubToken);
+
+                try
+                {
+                    HttpResponseMessage response = await client.GetAsync(url).ConfigureAwait(false);
+
+                    string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    System.Diagnostics.Debug.WriteLine("SHA lookup response: " + json);
+
+                    if (!response.IsSuccessStatusCode)
+                        return null;
+
+                    return json;
+                    //dynamic obj = JsonConvert.DeserializeObject(json);
+                    //string sha = (string)obj.sha;
+                    //System.Diagnostics.Debug.WriteLine("SHA: " + sha);
+                    //return sha;
+
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("GetFileShaAsync error: " + ex.Message);
+                    return null;
+                }
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -193,6 +356,11 @@ namespace ExcelWordImageUploader
         }
 
         private void Form1_Load_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label1_Click(object sender, EventArgs e)
         {
 
         }

@@ -25,23 +25,29 @@ namespace ExcelWordImageUploader
             this.lblSheet = new System.Windows.Forms.Label();
             this.btnBrowseExcel = new System.Windows.Forms.Button();
             this.btnBrowseWord = new System.Windows.Forms.Button();
+            this.picBoxOldImage = new System.Windows.Forms.PictureBox();
+            this.label1 = new System.Windows.Forms.Label();
+            this.label2 = new System.Windows.Forms.Label();
+            this.picBoxNewImage = new System.Windows.Forms.PictureBox();
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxOldImage)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxNewImage)).BeginInit();
             this.SuspendLayout();
             // 
             // txtRepo
             // 
             this.txtRepo.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.txtRepo.Location = new System.Drawing.Point(220, 15);
+            this.txtRepo.Location = new System.Drawing.Point(170, 15);
             this.txtRepo.Name = "txtRepo";
-            this.txtRepo.Size = new System.Drawing.Size(876, 29);
+            this.txtRepo.Size = new System.Drawing.Size(820, 29);
             this.txtRepo.TabIndex = 4;
             this.txtRepo.Text = "Professional Edition";
             // 
             // txtExcel
             // 
             this.txtExcel.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.txtExcel.Location = new System.Drawing.Point(220, 115);
+            this.txtExcel.Location = new System.Drawing.Point(170, 115);
             this.txtExcel.Name = "txtExcel";
-            this.txtExcel.Size = new System.Drawing.Size(876, 29);
+            this.txtExcel.Size = new System.Drawing.Size(820, 29);
             this.txtExcel.TabIndex = 5;
             this.txtExcel.Text = "C:\\Users\\Tim\\Documents\\__ngTTMv831\\ngTTM\\angular\\src\\assets\\docs\\Professional Use" +
     "r Guide";
@@ -49,9 +55,9 @@ namespace ExcelWordImageUploader
             // txtWord
             // 
             this.txtWord.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.txtWord.Location = new System.Drawing.Point(220, 64);
+            this.txtWord.Location = new System.Drawing.Point(170, 64);
             this.txtWord.Name = "txtWord";
-            this.txtWord.Size = new System.Drawing.Size(876, 29);
+            this.txtWord.Size = new System.Drawing.Size(820, 29);
             this.txtWord.TabIndex = 6;
             this.txtWord.Text = "C:\\Users\\Tim\\Documents\\__ngTTMv831\\ngTTM\\angular\\src\\assets\\docs\\Professional Use" +
     "r Guide";
@@ -59,7 +65,7 @@ namespace ExcelWordImageUploader
             // txtSheet
             // 
             this.txtSheet.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.txtSheet.Location = new System.Drawing.Point(220, 167);
+            this.txtSheet.Location = new System.Drawing.Point(170, 167);
             this.txtSheet.Name = "txtSheet";
             this.txtSheet.Size = new System.Drawing.Size(708, 29);
             this.txtSheet.TabIndex = 7;
@@ -68,7 +74,7 @@ namespace ExcelWordImageUploader
             // btnRun
             // 
             this.btnRun.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.btnRun.Location = new System.Drawing.Point(496, 218);
+            this.btnRun.Location = new System.Drawing.Point(415, 218);
             this.btnRun.Name = "btnRun";
             this.btnRun.Size = new System.Drawing.Size(210, 66);
             this.btnRun.TabIndex = 8;
@@ -118,7 +124,7 @@ namespace ExcelWordImageUploader
             // btnBrowseExcel
             // 
             this.btnBrowseExcel.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.btnBrowseExcel.Location = new System.Drawing.Point(1128, 115);
+            this.btnBrowseExcel.Location = new System.Drawing.Point(996, 114);
             this.btnBrowseExcel.Name = "btnBrowseExcel";
             this.btnBrowseExcel.Size = new System.Drawing.Size(40, 29);
             this.btnBrowseExcel.TabIndex = 10;
@@ -128,16 +134,59 @@ namespace ExcelWordImageUploader
             // btnBrowseWord
             // 
             this.btnBrowseWord.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.btnBrowseWord.Location = new System.Drawing.Point(1128, 64);
+            this.btnBrowseWord.Location = new System.Drawing.Point(996, 63);
             this.btnBrowseWord.Name = "btnBrowseWord";
             this.btnBrowseWord.Size = new System.Drawing.Size(40, 29);
             this.btnBrowseWord.TabIndex = 11;
             this.btnBrowseWord.Text = "...";
             this.btnBrowseWord.Click += new System.EventHandler(this.btnBrowseWord_Click);
             // 
+            // picBoxOldImage
+            // 
+            this.picBoxOldImage.Location = new System.Drawing.Point(18, 328);
+            this.picBoxOldImage.Name = "picBoxOldImage";
+            this.picBoxOldImage.Size = new System.Drawing.Size(476, 331);
+            this.picBoxOldImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+            this.picBoxOldImage.TabIndex = 12;
+            this.picBoxOldImage.TabStop = false;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Font = new System.Drawing.Font("Segoe UI", 12F);
+            this.label1.Location = new System.Drawing.Point(213, 287);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(85, 21);
+            this.label1.TabIndex = 13;
+            this.label1.Text = "Old Image:";
+            this.label1.Click += new System.EventHandler(this.label1_Click);
+            // 
+            // picLabelNew
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Font = new System.Drawing.Font("Segoe UI", 12F);
+            this.label2.Location = new System.Drawing.Point(737, 287);
+            this.label2.Name = "picLabelNew";
+            this.label2.Size = new System.Drawing.Size(92, 21);
+            this.label2.TabIndex = 14;
+            this.label2.Text = "New Image:";
+            // 
+            // picBoxNewImage
+            // 
+            this.picBoxNewImage.Location = new System.Drawing.Point(549, 328);
+            this.picBoxNewImage.Name = "picBoxNewImage";
+            this.picBoxNewImage.Size = new System.Drawing.Size(476, 331);
+            this.picBoxNewImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+            this.picBoxNewImage.TabIndex = 15;
+            this.picBoxNewImage.TabStop = false;
+            // 
             // Form1
             // 
-            this.ClientSize = new System.Drawing.Size(1196, 307);
+            this.ClientSize = new System.Drawing.Size(1052, 671);
+            this.Controls.Add(this.picBoxNewImage);
+            this.Controls.Add(this.label2);
+            this.Controls.Add(this.label1);
+            this.Controls.Add(this.picBoxOldImage);
             this.Controls.Add(this.lblRepo);
             this.Controls.Add(this.lblExcel);
             this.Controls.Add(this.lblWord);
@@ -152,6 +201,8 @@ namespace ExcelWordImageUploader
             this.Name = "Form1";
             this.Text = "Excel to GitHub Uploader";
             this.Load += new System.EventHandler(this.Form1_Load_1);
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxOldImage)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxNewImage)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -170,5 +221,9 @@ namespace ExcelWordImageUploader
         private System.Windows.Forms.Label lblSheet;
         private System.Windows.Forms.Button btnBrowseExcel;
         private System.Windows.Forms.Button btnBrowseWord;
+        private System.Windows.Forms.PictureBox picBoxOldImage;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.PictureBox picBoxNewImage;
     }
 }
