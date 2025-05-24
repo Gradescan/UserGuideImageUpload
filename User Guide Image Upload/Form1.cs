@@ -1,30 +1,31 @@
+using Newtonsoft.Json;
+using OfficeOpenXml;
 using System;
+using System.Drawing;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
+using System.Web;
 using System.Windows.Forms;
-using OfficeOpenXml;
 
 namespace ExcelWordImageUploader
 {
     public partial class Form1 : Form
     {
         //-----------------------------------------------------------------------------------------
-        private const string DefaultGitHubFolder = "Gradescan Professional User Guide";
-
         private string GitHubToken;
         //-----------------------------------------------------------------------------------------
         public Form1()
         {
-            InitializeComponent();
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
-#pragma warning disable CS0618
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-#pragma warning restore CS0618
+            InitializeComponent();
+            StartPosition = FormStartPosition.WindowsDefaultLocation;
 
             GitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
             if (string.IsNullOrWhiteSpace(GitHubToken))
@@ -43,20 +44,10 @@ namespace ExcelWordImageUploader
 
         private void btnRun_Click(object sender, EventArgs e)
         {
-            string repoPath = txtRepo.Text.Trim();
+            string repoFolder = txtRepo.Text.Trim();
             string excelPath = txtExcel.Text.Trim();
             string wordPath = txtWord.Text.Trim();
             string sheetName = txtSheet.Text.Trim();
-
-            if (!repoPath.Contains("/"))
-            {
-                MessageBox.Show("Repo must be in format: owner/repo (e.g. Gradescan/images)");
-                return;
-            }
-
-            string[] parts = repoPath.Split('/');
-            string gitUsername = parts[0];
-            string gitRepoName = parts[1];
 
             ZipArchive zip = null;
             ExcelPackage package = null;
@@ -91,8 +82,7 @@ namespace ExcelWordImageUploader
                     {
                         sourceStream.CopyTo(ms);
                         byte[] buffer = ms.ToArray();
-                        bool result = UploadToGitHub(
-                            gitUsername, gitRepoName, destFileName, buffer).GetAwaiter().GetResult();
+                        bool result = UploadToGitHub(repoFolder, destFileName, buffer).GetAwaiter().GetResult();
 
                         if (!result)
                             Console.WriteLine("Upload failed: " + destFileName);
@@ -111,29 +101,100 @@ namespace ExcelWordImageUploader
                 if (package != null) package.Dispose();
             }
         }
-
-        private async Task<bool> UploadToGitHub(string username, string repo, string fileName, byte[] content)
+        //-----------------------------------------------------------------------------------------
+        private async Task<bool> UploadToGitHub(string repoDir, string fileName, byte[] imageBytes)
         {
-            string path = Uri.EscapeUriString(DefaultGitHubFolder + "/" + fileName);
-            string url = $"https://api.github.com/repos/{username}/{repo}/contents/{path}";
-
-            string base64 = Convert.ToBase64String(content);
-            var payload = new
+            try
             {
-                message = "Auto upload " + fileName,
-                content = base64
-            };
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
-            string json = JsonSerializer.Serialize(payload);
-            HttpClient client = new HttpClient();
+                string owner = "Gradescan";
+                string repo = "media";
+                string repoPath = string.Join("/",
+                    repoDir.Split('/')
+                           .Select(Uri.EscapeDataString)
+                           .Concat(new[] { Uri.EscapeDataString(fileName) })
+                );
+                string url = $"https://api.github.com/repos/{owner}/{repo}/contents/{repoPath}";
 
-            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UploaderApp", "1.0"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", GitHubToken);
+                Bitmap bitmap;
+                using (var ms = new MemoryStream(imageBytes))
+                {
+                    bitmap = new Bitmap(ms);
+                }
 
-            HttpContent httpContent = new StringContent(json, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await client.PutAsync(url, httpContent);
+                string base64 = Convert.ToBase64String(imageBytes);
 
-            return response.IsSuccessStatusCode;
+                var payload = new
+                {
+                    message = "Auto upload " + fileName,
+                    content = base64,
+                    committer = new
+                    {
+                        name = "UploaderBot",
+                        email = "uploader@gradescan.org"
+                    },
+                    author = new
+                    {
+                        name = "UploaderBot",
+                        email = "uploader@gradescan.org"
+                    }
+                };
+
+                string json = JsonConvert.SerializeObject(payload);
+
+                System.Diagnostics.Debug.WriteLine("URL: " + url);
+                System.Diagnostics.Debug.WriteLine("Payload: " + json);
+
+                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) })
+                {
+                    client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UploaderApp", "1.0"));
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", GitHubToken);
+
+                    HttpContent httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+                    HttpResponseMessage response = await client.PutAsync(url, httpContent).ConfigureAwait(false);
+                    string result = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    return response.IsSuccessStatusCode;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("UploadToGitHub error: " + ex.Message);
+                return false;
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private void btnBrowseExcel_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog dlg = new OpenFileDialog();
+            dlg.Title = "Select Excel File";
+            dlg.Filter = "Excel Files (*.xlsx)|*.xlsx";
+            dlg.InitialDirectory = Path.GetDirectoryName(txtExcel.Text);
+            if (dlg.ShowDialog() == DialogResult.OK)
+                txtExcel.Text = dlg.FileName;
+        }
+        //-----------------------------------------------------------------------------------------
+        private void btnBrowseWord_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog dlg = new OpenFileDialog();
+            dlg.Title = "Select Word File";
+            dlg.Filter = "Word Files (*.docx)|*.docx";
+            dlg.InitialDirectory = Path.GetDirectoryName(txtExcel.Text);
+            if (dlg.ShowDialog() == DialogResult.OK)
+                txtWord.Text = dlg.FileName;
+        }
+        //-----------------------------------------------------------------------------------------
+        private void btnBrowseRepo_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog dlg = new FolderBrowserDialog();
+            if (dlg.ShowDialog() == DialogResult.OK)
+                txtRepo.Text = dlg.SelectedPath.Replace('\\', '/'); // optional
+        }
+
+        private void Form1_Load_1(object sender, EventArgs e)
+        {
+
         }
         //-----------------------------------------------------------------------------------------
         //-----------------------------------------------------------------------------------------
