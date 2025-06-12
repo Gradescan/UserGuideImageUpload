@@ -29,12 +29,14 @@ namespace ExcelWordImageUploader
             this.picBoxPanel = new System.Windows.Forms.Panel();
             this.listBoxCollisions = new System.Windows.Forms.ListBox();
             this.labelCollisions = new System.Windows.Forms.Label();
-            this.comboBoxWorksheetNames = new System.Windows.Forms.ComboBox();
+            this.comboBoxWorksheet = new System.Windows.Forms.ComboBox();
             this.buttonStop = new System.Windows.Forms.Button();
             this.labelFileName = new System.Windows.Forms.Label();
             this.btnClearAltText = new System.Windows.Forms.Button();
             this.btnVerify = new System.Windows.Forms.Button();
             this.btnAssign = new System.Windows.Forms.Button();
+            this.lblStatus = new System.Windows.Forms.Label();
+            this.labelStatus = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.picBoxOldImage)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.picBoxNewImage)).BeginInit();
             this.picBoxPanel.SuspendLayout();
@@ -43,33 +45,31 @@ namespace ExcelWordImageUploader
             // txtExcelApp
             // 
             this.txtExcelApp.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.txtExcelApp.Location = new System.Drawing.Point(170, 51);
+            this.txtExcelApp.Location = new System.Drawing.Point(170, 106);
             this.txtExcelApp.Name = "txtExcelApp";
-            this.txtExcelApp.Size = new System.Drawing.Size(820, 29);
+            this.txtExcelApp.Size = new System.Drawing.Size(959, 29);
             this.txtExcelApp.TabIndex = 5;
             this.txtExcelApp.Text = "C:\\Users\\Tim\\Documents\\__ngTTMv831\\ngTTM\\angular\\src\\assets\\docs\\User Guides Imag" +
     "e Map.xlsx";
-            this.txtExcelApp.TextChanged += new System.EventHandler(this.txtExcel_TextChanged);
             // 
             // txtWordApp
             // 
             this.txtWordApp.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.txtWordApp.Location = new System.Drawing.Point(170, 16);
             this.txtWordApp.Name = "txtWordApp";
-            this.txtWordApp.Size = new System.Drawing.Size(820, 29);
+            this.txtWordApp.Size = new System.Drawing.Size(959, 29);
             this.txtWordApp.TabIndex = 6;
-            this.txtWordApp.Text = "Select a User Guide";
             // 
             // btnUpload
             // 
             this.btnUpload.BackColor = System.Drawing.Color.LawnGreen;
             this.btnUpload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnUpload.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnUpload.Location = new System.Drawing.Point(553, 161);
+            this.btnUpload.Location = new System.Drawing.Point(653, 144);
             this.btnUpload.Name = "btnUpload";
-            this.btnUpload.Size = new System.Drawing.Size(223, 69);
+            this.btnUpload.Size = new System.Drawing.Size(168, 104);
             this.btnUpload.TabIndex = 8;
-            this.btnUpload.Text = "Upload Images";
+            this.btnUpload.Text = "Upload Images Set Alt Text";
             this.btnUpload.UseVisualStyleBackColor = false;
             this.btnUpload.Click += new System.EventHandler(this.btnUpload_Click);
             // 
@@ -77,12 +77,11 @@ namespace ExcelWordImageUploader
             // 
             this.lblExcel.AutoSize = true;
             this.lblExcel.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.lblExcel.Location = new System.Drawing.Point(28, 54);
+            this.lblExcel.Location = new System.Drawing.Point(28, 109);
             this.lblExcel.Name = "lblExcel";
             this.lblExcel.Size = new System.Drawing.Size(117, 21);
             this.lblExcel.TabIndex = 1;
             this.lblExcel.Text = "Excel File (.xlsx):";
-            this.lblExcel.Click += new System.EventHandler(this.lblExcel_Click);
             // 
             // lblWord
             // 
@@ -98,7 +97,7 @@ namespace ExcelWordImageUploader
             // 
             this.lblSheet.AutoSize = true;
             this.lblSheet.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.lblSheet.Location = new System.Drawing.Point(12, 89);
+            this.lblSheet.Location = new System.Drawing.Point(12, 144);
             this.lblSheet.Name = "lblSheet";
             this.lblSheet.Size = new System.Drawing.Size(133, 21);
             this.lblSheet.TabIndex = 3;
@@ -107,7 +106,7 @@ namespace ExcelWordImageUploader
             // btnBrowseExcel
             // 
             this.btnBrowseExcel.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.btnBrowseExcel.Location = new System.Drawing.Point(996, 50);
+            this.btnBrowseExcel.Location = new System.Drawing.Point(1135, 105);
             this.btnBrowseExcel.Name = "btnBrowseExcel";
             this.btnBrowseExcel.Size = new System.Drawing.Size(40, 29);
             this.btnBrowseExcel.TabIndex = 10;
@@ -117,7 +116,7 @@ namespace ExcelWordImageUploader
             // btnBrowseWord
             // 
             this.btnBrowseWord.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.btnBrowseWord.Location = new System.Drawing.Point(996, 15);
+            this.btnBrowseWord.Location = new System.Drawing.Point(1135, 15);
             this.btnBrowseWord.Name = "btnBrowseWord";
             this.btnBrowseWord.Size = new System.Drawing.Size(40, 29);
             this.btnBrowseWord.TabIndex = 11;
@@ -127,9 +126,9 @@ namespace ExcelWordImageUploader
             // picBoxOldImage
             // 
             this.picBoxOldImage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.picBoxOldImage.Location = new System.Drawing.Point(6, 7);
+            this.picBoxOldImage.Location = new System.Drawing.Point(6, 8);
             this.picBoxOldImage.Name = "picBoxOldImage";
-            this.picBoxOldImage.Size = new System.Drawing.Size(476, 383);
+            this.picBoxOldImage.Size = new System.Drawing.Size(579, 343);
             this.picBoxOldImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.picBoxOldImage.TabIndex = 12;
             this.picBoxOldImage.TabStop = false;
@@ -139,13 +138,12 @@ namespace ExcelWordImageUploader
             this.labelOldImage.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.labelOldImage.AutoSize = true;
             this.labelOldImage.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.labelOldImage.Location = new System.Drawing.Point(213, 239);
+            this.labelOldImage.Location = new System.Drawing.Point(279, 261);
             this.labelOldImage.Name = "labelOldImage";
             this.labelOldImage.Size = new System.Drawing.Size(82, 21);
             this.labelOldImage.TabIndex = 13;
             this.labelOldImage.Text = "Old Image";
             this.labelOldImage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.labelOldImage.Click += new System.EventHandler(this.label1_Click);
             // 
             // labelNewImage
             // 
@@ -154,7 +152,7 @@ namespace ExcelWordImageUploader
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labelNewImage.AutoSize = true;
             this.labelNewImage.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.labelNewImage.Location = new System.Drawing.Point(737, 239);
+            this.labelNewImage.Location = new System.Drawing.Point(737, 266);
             this.labelNewImage.Name = "labelNewImage";
             this.labelNewImage.Size = new System.Drawing.Size(89, 21);
             this.labelNewImage.TabIndex = 14;
@@ -164,9 +162,9 @@ namespace ExcelWordImageUploader
             // picBoxNewImage
             // 
             this.picBoxNewImage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.picBoxNewImage.Location = new System.Drawing.Point(541, 7);
+            this.picBoxNewImage.Location = new System.Drawing.Point(608, 9);
             this.picBoxNewImage.Name = "picBoxNewImage";
-            this.picBoxNewImage.Size = new System.Drawing.Size(476, 383);
+            this.picBoxNewImage.Size = new System.Drawing.Size(565, 343);
             this.picBoxNewImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.picBoxNewImage.TabIndex = 15;
             this.picBoxNewImage.TabStop = false;
@@ -176,9 +174,9 @@ namespace ExcelWordImageUploader
             this.picBoxPanel.BackColor = System.Drawing.SystemColors.Control;
             this.picBoxPanel.Controls.Add(this.picBoxNewImage);
             this.picBoxPanel.Controls.Add(this.picBoxOldImage);
-            this.picBoxPanel.Location = new System.Drawing.Point(16, 271);
+            this.picBoxPanel.Location = new System.Drawing.Point(4, 298);
             this.picBoxPanel.Name = "picBoxPanel";
-            this.picBoxPanel.Size = new System.Drawing.Size(1020, 396);
+            this.picBoxPanel.Size = new System.Drawing.Size(1179, 358);
             this.picBoxPanel.TabIndex = 16;
             // 
             // listBoxCollisions
@@ -186,45 +184,38 @@ namespace ExcelWordImageUploader
             this.listBoxCollisions.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.listBoxCollisions.FormattingEnabled = true;
             this.listBoxCollisions.ItemHeight = 21;
-            this.listBoxCollisions.Location = new System.Drawing.Point(170, 142);
+            this.listBoxCollisions.Location = new System.Drawing.Point(170, 184);
             this.listBoxCollisions.Name = "listBoxCollisions";
-            this.listBoxCollisions.Size = new System.Drawing.Size(328, 88);
+            this.listBoxCollisions.Size = new System.Drawing.Size(385, 67);
             this.listBoxCollisions.TabIndex = 17;
-            this.listBoxCollisions.SelectedIndexChanged += new System.EventHandler(this.listBoxCollisions_SelectedIndexChanged);
             // 
             // labelCollisions
             // 
             this.labelCollisions.AutoSize = true;
             this.labelCollisions.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.labelCollisions.Location = new System.Drawing.Point(65, 161);
+            this.labelCollisions.Location = new System.Drawing.Point(65, 203);
             this.labelCollisions.Name = "labelCollisions";
             this.labelCollisions.Size = new System.Drawing.Size(80, 21);
             this.labelCollisions.TabIndex = 18;
             this.labelCollisions.Text = "Collisions:";
             // 
-            // comboBoxWorksheetNames
+            // comboBoxWorksheet
             // 
-            this.comboBoxWorksheetNames.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.comboBoxWorksheetNames.FormattingEnabled = true;
-            this.comboBoxWorksheetNames.Items.AddRange(new object[] {
-            "Basic Edition",
-            "Professional Edition",
-            "Basic Forms",
-            "Professional Forms"});
-            this.comboBoxWorksheetNames.Location = new System.Drawing.Point(170, 92);
-            this.comboBoxWorksheetNames.Name = "comboBoxWorksheetNames";
-            this.comboBoxWorksheetNames.Size = new System.Drawing.Size(328, 29);
-            this.comboBoxWorksheetNames.TabIndex = 19;
-            this.comboBoxWorksheetNames.SelectedIndexChanged += new System.EventHandler(this.comboBoxWorksheetNames_SelectedIndexChanged);
+            this.comboBoxWorksheet.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.comboBoxWorksheet.FormattingEnabled = true;
+            this.comboBoxWorksheet.Location = new System.Drawing.Point(170, 147);
+            this.comboBoxWorksheet.Name = "comboBoxWorksheet";
+            this.comboBoxWorksheet.Size = new System.Drawing.Size(385, 29);
+            this.comboBoxWorksheet.TabIndex = 19;
             // 
             // buttonStop
             // 
             this.buttonStop.BackColor = System.Drawing.Color.Red;
             this.buttonStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.buttonStop.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.buttonStop.Location = new System.Drawing.Point(806, 161);
+            this.buttonStop.Location = new System.Drawing.Point(986, 144);
             this.buttonStop.Name = "buttonStop";
-            this.buttonStop.Size = new System.Drawing.Size(223, 69);
+            this.buttonStop.Size = new System.Drawing.Size(143, 104);
             this.buttonStop.TabIndex = 20;
             this.buttonStop.Text = "STOP";
             this.buttonStop.UseVisualStyleBackColor = false;
@@ -235,9 +226,9 @@ namespace ExcelWordImageUploader
             this.labelFileName.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labelFileName.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
-            this.labelFileName.Location = new System.Drawing.Point(341, 239);
+            this.labelFileName.Location = new System.Drawing.Point(341, 266);
             this.labelFileName.Name = "labelFileName";
-            this.labelFileName.Size = new System.Drawing.Size(369, 21);
+            this.labelFileName.Size = new System.Drawing.Size(501, 21);
             this.labelFileName.TabIndex = 21;
             this.labelFileName.Text = "file name";
             this.labelFileName.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -247,7 +238,7 @@ namespace ExcelWordImageUploader
             this.btnClearAltText.BackColor = System.Drawing.Color.Yellow;
             this.btnClearAltText.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnClearAltText.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnClearAltText.Location = new System.Drawing.Point(680, 92);
+            this.btnClearAltText.Location = new System.Drawing.Point(170, 51);
             this.btnClearAltText.Name = "btnClearAltText";
             this.btnClearAltText.Size = new System.Drawing.Size(223, 46);
             this.btnClearAltText.TabIndex = 22;
@@ -260,35 +251,61 @@ namespace ExcelWordImageUploader
             this.btnVerify.BackColor = System.Drawing.Color.Aqua;
             this.btnVerify.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnVerify.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnVerify.Location = new System.Drawing.Point(553, 92);
+            this.btnVerify.Location = new System.Drawing.Point(903, 51);
             this.btnVerify.Name = "btnVerify";
-            this.btnVerify.Size = new System.Drawing.Size(105, 46);
+            this.btnVerify.Size = new System.Drawing.Size(226, 46);
             this.btnVerify.TabIndex = 23;
-            this.btnVerify.Text = "Verify";
+            this.btnVerify.Text = "Verify Alt Text";
             this.btnVerify.UseVisualStyleBackColor = false;
+            this.btnVerify.Click += new System.EventHandler(this.btnVerify_Click);
             // 
             // btnAssign
             // 
             this.btnAssign.BackColor = System.Drawing.Color.Fuchsia;
             this.btnAssign.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAssign.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnAssign.Location = new System.Drawing.Point(924, 92);
+            this.btnAssign.Location = new System.Drawing.Point(484, 51);
             this.btnAssign.Name = "btnAssign";
-            this.btnAssign.Size = new System.Drawing.Size(105, 46);
+            this.btnAssign.Size = new System.Drawing.Size(225, 46);
             this.btnAssign.TabIndex = 24;
-            this.btnAssign.Text = "Assign";
+            this.btnAssign.Text = "Assign Alt Text";
             this.btnAssign.UseVisualStyleBackColor = false;
             this.btnAssign.Click += new System.EventHandler(this.btnAssign_Click);
             // 
+            // lblStatus
+            // 
+            this.lblStatus.AutoSize = true;
+            this.lblStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblStatus.Location = new System.Drawing.Point(838, 167);
+            this.lblStatus.Name = "lblStatus";
+            this.lblStatus.Size = new System.Drawing.Size(60, 24);
+            this.lblStatus.TabIndex = 25;
+            this.lblStatus.Text = "Status";
+            // 
+            // labelStatus
+            // 
+            this.labelStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.labelStatus.AutoSize = true;
+            this.labelStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labelStatus.Location = new System.Drawing.Point(838, 198);
+            this.labelStatus.Name = "labelStatus";
+            this.labelStatus.Size = new System.Drawing.Size(25, 24);
+            this.labelStatus.TabIndex = 27;
+            this.labelStatus.Text = "...";
+            // 
             // Form1
             // 
-            this.ClientSize = new System.Drawing.Size(1052, 671);
+            this.ClientSize = new System.Drawing.Size(1184, 661);
+            this.Controls.Add(this.labelStatus);
+            this.Controls.Add(this.lblStatus);
             this.Controls.Add(this.btnAssign);
             this.Controls.Add(this.btnVerify);
             this.Controls.Add(this.btnClearAltText);
             this.Controls.Add(this.labelFileName);
             this.Controls.Add(this.buttonStop);
-            this.Controls.Add(this.comboBoxWorksheetNames);
+            this.Controls.Add(this.comboBoxWorksheet);
             this.Controls.Add(this.labelCollisions);
             this.Controls.Add(this.listBoxCollisions);
             this.Controls.Add(this.picBoxPanel);
@@ -304,7 +321,6 @@ namespace ExcelWordImageUploader
             this.Controls.Add(this.btnBrowseWord);
             this.Name = "Form1";
             this.Text = "Excel to GitHub Uploader";
-            this.Load += new System.EventHandler(this.Form1_Load_1);
             ((System.ComponentModel.ISupportInitialize)(this.picBoxOldImage)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.picBoxNewImage)).EndInit();
             this.picBoxPanel.ResumeLayout(false);
@@ -329,11 +345,13 @@ namespace ExcelWordImageUploader
         private System.Windows.Forms.Panel picBoxPanel;
         private System.Windows.Forms.ListBox listBoxCollisions;
         private System.Windows.Forms.Label labelCollisions;
-        private System.Windows.Forms.ComboBox comboBoxWorksheetNames;
+        private System.Windows.Forms.ComboBox comboBoxWorksheet;
         private System.Windows.Forms.Button buttonStop;
         private System.Windows.Forms.Label labelFileName;
         private System.Windows.Forms.Button btnClearAltText;
         private System.Windows.Forms.Button btnVerify;
         private System.Windows.Forms.Button btnAssign;
+        private System.Windows.Forms.Label lblStatus;
+        private System.Windows.Forms.Label labelStatus;
     }
 }

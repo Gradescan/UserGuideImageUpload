@@ -18,6 +18,7 @@ using Word = Microsoft.Office.Interop.Word;
 
 namespace ExcelWordImageUploader
 {
+    //-----------------------------------------------------------------------------------------
     public partial class Form1 : Form
     {
         //-----------------------------------------------------------------------------------------
@@ -33,6 +34,17 @@ namespace ExcelWordImageUploader
         private int COL_MAX_HEIGHT;
 
         //-----------------------------------------------------------------------------------------
+        private WorksheetItem[] worksheetItems = new[]
+        {
+            new WorksheetItem("Professional Edition", 1001),
+            new WorksheetItem("Basic Edition", 2001),
+            new WorksheetItem("Professional Forms", 3001),
+            new WorksheetItem("Basic Forms", 4001),
+        };
+
+        private const string SelectaUserGuide = "Select a User Guide";
+
+        //-----------------------------------------------------------------------------------------
         private string GitHubToken;
         private bool Stop = false;
         //-----------------------------------------------------------------------------------------
@@ -44,6 +56,7 @@ namespace ExcelWordImageUploader
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
             InitializeComponent();
+            this.Load += Form1_Load;  // Ensures Form1_Load gets called
             StartPosition = FormStartPosition.WindowsDefaultLocation;
 
             GitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -53,27 +66,35 @@ namespace ExcelWordImageUploader
                 Environment.Exit(1);
             }
 
-            comboBoxWorksheetNames.SelectedIndex = 1;
+            comboBoxWorksheet.DataSource = worksheetItems;
+            comboBoxWorksheet.DisplayMember = "worksheetItemName";      // Text shown in dropdown
+            comboBoxWorksheet.ValueMember = "startingTagNumber";    // Value you can access later
+
+            txtWordApp.Text = SelectaUserGuide;
+
+            comboBoxWorksheet.SelectedIndex = 1;
         }
         //-----------------------------------------------------------------------------------------
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Optional logic when the form loads
+            // Position at top-center of the primary screen
+            int screenWidth = Screen.PrimaryScreen.WorkingArea.Width;
+            int formWidth = this.Width;
+
+            this.StartPosition = FormStartPosition.Manual;
+            this.Location = new Point((screenWidth - formWidth) / 2, 5);  // X = center, Y = 0 (top)
         }
         //-----------------------------------------------------------------------------------------
         private async void btnUpload_Click(object sender, EventArgs e)
         {
             Stop = false;
 
+            if (!ValidateInputSettings())
+                return;
+
             string wordAppPath = txtWordApp.Text.Trim();
             string excelAppPath = txtExcelApp.Text.Trim();
-            string sheetName = comboBoxWorksheetNames.Text.Trim();
-
-            if (IsWorkbookOpen(excelAppPath))
-            {
-                MessageBox.Show("The Excel file is currently open. Please save and close the file.");
-                return;
-            }
+            string sheetName = comboBoxWorksheet.Text.Trim();
 
             ZipArchive wordAppAsZip = null;
             ExcelPackage excelPackage = null;
@@ -101,6 +122,35 @@ namespace ExcelWordImageUploader
                 WritableColumnsBySheet.Clear();
                 WritableColumnsBySheet.Add(sheetName, new HashSet<int> { COL_ALT_TEXT, COL_ERRORS });
 
+                // verify that all AltTextId values are sequential
+
+                DialogResult msgResult;
+                bool keepChecking = true;
+                for (int row = 3; row < 1000; row++)        // first row is header
+                {
+                    BeginInvoke((Action)(() => labelStatus.Text = worksheet.Cells[row - 1, COL_IMAGE_NAME].Text));
+                    Application.DoEvents();
+
+                    if (!string.IsNullOrEmpty(worksheet.Cells[row, COL_IMAGE_NAME].Text))
+                    {
+                        int row0 = int.Parse(worksheet.Cells[row - 1, COL_ALT_TEXT_ID].Text);
+                        int row1 = int.Parse(worksheet.Cells[row, COL_ALT_TEXT_ID].Text);
+                        if (row0 + 1 != row1)
+                        {
+                            msgResult = MessageBox.Show("Out of sequence at row " + row.ToString(), "Continue?", MessageBoxButtons.OKCancel);
+                            if (msgResult == DialogResult.Cancel)
+                                return;
+                        }
+                    }
+                    else
+                    {
+                        msgResult = MessageBox.Show("Last Image Name = " + worksheet.Cells[row-1, COL_IMAGE_NAME].Text, "Continue?", MessageBoxButtons.OKCancel);
+                        if (msgResult == DialogResult.Cancel)
+                            return;
+                        else
+                            break;
+                    }
+                }
                 for (int row = 2; row < 1000; row++)        // first row is header
                 {
                     if (Stop)
@@ -152,9 +202,10 @@ namespace ExcelWordImageUploader
                         continue;
 
                     // ensures no duplicate file names
-                    destFileName += "-" + worksheet.Cells[row, COL_ALT_TEXT_ID].Text;
+                    destFileName = worksheet.Cells[row, COL_ALT_TEXT_ID].Text + "-" + destFileName;
 
                     BeginInvoke((Action)(() => labelNewImage.Text = sourceImageName));
+                    Application.DoEvents();
 
                     string internalPath = "word/media/" + sourceImageName;
                     ZipArchiveEntry wordMediaImage = wordAppAsZip.GetEntry(internalPath);
@@ -183,6 +234,7 @@ namespace ExcelWordImageUploader
                     picBoxNewImage.Image = bitmap;
                     // show the media image
                     BeginInvoke((Action)(() => labelFileName.Text = sourceImageName));
+                    Application.DoEvents();
 
                     string sha = string.Empty;
 
@@ -229,8 +281,9 @@ namespace ExcelWordImageUploader
                             //worksheet.Cells[row, 3].Value = "Error";
                             SafeSetCellValue(worksheet, row, COL_ERRORS, "Error");
                             BeginInvoke((Action)(() => listBoxCollisions.Items.Add(destFileName)));
+                            Application.DoEvents();
                             picBoxPanel.BackColor = Color.Red;
-                            MessageBox.Show("MisMatch: " + destFileName);
+                //            MessageBox.Show("MisMatch: " + destFileName);
                         }
                     }
                     else
@@ -401,23 +454,6 @@ namespace ExcelWordImageUploader
             }
         }
         //-----------------------------------------------------------------------------------------
-        public static bool IsWorkbookOpen(string filePath)
-        {
-            try
-            {
-                using (FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-                {
-                    // File is not locked
-                    return false;
-                }
-            }
-            catch (IOException)
-            {
-                // File is locked (likely open in Excel)
-                return true;
-            }
-        }
-        //-----------------------------------------------------------------------------------------
         public static int GetColumnNumberByHeaderTitle(ExcelWorkbook workbook, string worksheetName, string columnTitle)
         {
             var worksheet = workbook.Worksheets[worksheetName];
@@ -472,26 +508,6 @@ namespace ExcelWordImageUploader
                 txtWordApp.Text = dlg.FileName;
         }
         //-----------------------------------------------------------------------------------------
-        private void Form1_Load_1(object sender, EventArgs e)
-        {
-
-        }
-        //-----------------------------------------------------------------------------------------
-        private void label1_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txtExcel_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void lblExcel_Click(object sender, EventArgs e)
-        {
-
-        }
-
         private void buttonStop_Click(object sender, EventArgs e)
         {
             Stop = true;
@@ -501,7 +517,7 @@ namespace ExcelWordImageUploader
 
         private string GetAltText(string html_url, string title, string max_height, string altTextId)
         {
-            string _maxheight = (string.IsNullOrEmpty(max_height) ? "" : $@"style=""max-height: {max_height}px; width: auto; "" ");
+            string _maxheight = (string.IsNullOrEmpty(max_height) ? "" : $@"style=""max-height: {max_height}px; max-width: auto; width: auto; "" ");
             string alttext =
         $@"<span style=""font-size: 18px;"" title=""{title} "">
     <img src=""{html_url}?raw=true"" {_maxheight}/>
@@ -529,14 +545,12 @@ namespace ExcelWordImageUploader
         //-----------------------------------------------------------------------------------------
         private void btnAssign_Click(object sender, EventArgs e)
         {
-            // Prompt user for starting number
-            string input = Microsoft.VisualBasic.Interaction.InputBox("Enter starting number (e.g., 1):", "Start Number", "1");
-            if (!int.TryParse(input, out int counter) || counter < 0)
-            {
-                MessageBox.Show("Invalid number entered.");
+            if (!ValidateInputSettings())
                 return;
-            }
 
+            // Get the starting number from comboBoxWorksheet
+            int startingValue = (int)comboBoxWorksheet.SelectedValue;
+            int counter = startingValue;
             int largestNumber = counter;
 
             Word.Application wordApp = null;
@@ -544,11 +558,15 @@ namespace ExcelWordImageUploader
 
             try
             {
-                string wordPath = txtWordApp.Text.Trim();
-                wordApp = new Word.Application();
-                doc = wordApp.Documents.Open(wordPath);
+                string wordAppPath = txtWordApp.Text.Trim();
+                string sheetName = comboBoxWorksheet.Text.Trim();
 
-                Regex pattern = new Regex(@"\[(\d{3})\]");
+                wordApp = new Word.Application();
+                doc = wordApp.Documents.Open(wordAppPath);
+
+                // match legacy 3-digit numbers or current standar 4-digit numbers.
+                Regex pattern = new Regex(@"\[(\d{3,4})\]");
+
 
                 // Process InlineShapes
                 foreach (Word.InlineShape shape in doc.InlineShapes)
@@ -568,10 +586,13 @@ namespace ExcelWordImageUploader
                     else
                     {
                         // Assign new number
-                        shape.AlternativeText = altText + "[" + counter.ToString("D3") + "]";
+                        shape.AlternativeText = altText + "[" + counter.ToString("D4") + "]";
                         counter++;
                         largestNumber = counter;
                     }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
                 }
 
                 foreach (Word.Shape shape in doc.Shapes)
@@ -579,10 +600,13 @@ namespace ExcelWordImageUploader
                     string altText = shape.AlternativeText;
                     if (!pattern.IsMatch(altText))
                     {
-                        string newText = altText + "\n[" + counter.ToString("D3") + "]";
+                        string newText = altText + "\n[" + counter.ToString("D4") + "]";
                         shape.AlternativeText = newText;
                         counter++;
                     }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
                 }
                 doc.Save();
                 MessageBox.Show("AltText update completed. Last value used or found = " + (largestNumber - 1).ToString());
@@ -615,16 +639,19 @@ namespace ExcelWordImageUploader
         //-----------------------------------------------------------------------------------------
         private void btnClearAltText_Click(object sender, EventArgs e)
         {
+            if (!ValidateInputSettings())
+                return;
+
             Word.Application wordApp = null;
             Word.Document doc = null;
 
             try
             {
-                string wordPath = txtWordApp.Text.Trim();
+                string wordAppPath = txtWordApp.Text.Trim();
                 wordApp = new Word.Application();
-                doc = wordApp.Documents.Open(wordPath);
+                doc = wordApp.Documents.Open(wordAppPath);
 
-                int clearedCount = 0;
+                int counter = 0;
                 int convertedCount = 0;
 
                 // Clear InlineShapes Alt Text
@@ -633,8 +660,11 @@ namespace ExcelWordImageUploader
                     if (!string.IsNullOrEmpty(shape.AlternativeText))
                     {
                         shape.AlternativeText = string.Empty;
-                        clearedCount++;
+                        counter++;
                     }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
                 }
 
                 // Clear floating Shapes Alt Text
@@ -650,12 +680,15 @@ namespace ExcelWordImageUploader
                     if (!string.IsNullOrEmpty(shape.AlternativeText))
                     {
                         shape.AlternativeText = string.Empty;
-                        clearedCount++;
+                        counter++;
                     }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
                 }
 
                 doc.Save();
-                MessageBox.Show($"Cleared AltText from {clearedCount} shapes.  Converted {convertedCount} shapes.");
+                MessageBox.Show($"Cleared AltText from {counter} shapes.  Converted {convertedCount} shapes.");
             }
             catch (Exception ex)
             {
@@ -682,19 +715,79 @@ namespace ExcelWordImageUploader
                 GC.WaitForPendingFinalizers();
             }
         }
-
-        private void listBoxCollisions_SelectedIndexChanged(object sender, EventArgs e)
+        //-----------------------------------------------------------------------------------------
+        private void btnVerify_Click(object sender, EventArgs e)
         {
-
-        }
-
-        private void comboBoxWorksheetNames_SelectedIndexChanged(object sender, EventArgs e)
-        {
+            if (!ValidateInputSettings())
+                return;
 
         }
         //-----------------------------------------------------------------------------------------
+        private bool ValidateInputSettings()
+        {
+            string wordAppPath = txtWordApp.Text.Trim();
+            string excelAppPath = txtExcelApp.Text.Trim();
+            string sheetName = comboBoxWorksheet.Text.Trim();
+
+            if (IsFileOpen(excelAppPath))
+            {
+                MessageBox.Show("The Excel file is currently open. Please save and close the file.");
+                return false;
+            }
+
+            if (SelectaUserGuide == wordAppPath)
+            {
+                MessageBox.Show(SelectaUserGuide);
+                return false;
+            }
+
+            if (IsFileOpen(wordAppPath))
+            {
+                MessageBox.Show("The User Guide file is currently open. Please save and close the file.");
+                return false;
+            }
+
+            if (!wordAppPath.Contains(sheetName))
+            {
+                MessageBox.Show("Word File and Worksheet Name mismatch");
+                return false;
+            }
+
+            return true;
+        }
         //-----------------------------------------------------------------------------------------
+        public static bool IsFileOpen(string filePath)
+        {
+            try
+            {
+                using (FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    // File is not locked
+                    return false;
+                }
+            }
+            catch (IOException)
+            {
+                // File is locked (likely open in Excel)
+                return true;
+            }
+        }
         //-----------------------------------------------------------------------------------------
+        public class WorksheetItem
+        {
+            public string  worksheetItemName { get; set; }
+            public int     startingTagNumber { get; set; }
+
+            public WorksheetItem(string name, int tagnum)
+            {
+                worksheetItemName = name;
+                startingTagNumber = tagnum;
+            }
+            public override string ToString()
+            {
+                return worksheetItemName;
+            }
+        }
     }
     //-----------------------------------------------------------------------------------------
 }
