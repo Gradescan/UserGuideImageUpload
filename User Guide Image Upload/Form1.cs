@@ -517,7 +517,9 @@ namespace ExcelWordImageUploader
 
         private string GetAltText(string html_url, string title, string max_height, string altTextId)
         {
-            string _maxheight = (string.IsNullOrEmpty(max_height) ? "" : $@"style=""max-height: {max_height}px; max-width: auto; width: auto; "" ");
+            string _maxheight = (string.IsNullOrEmpty(max_height)
+                              ? $@"style=""max-width: auto; width: auto; "" "
+                              : $@"style=""max-width: auto; width: auto; max-height: {max_height}px; "" ");
             string alttext =
         $@"<span style=""font-size: 18px;"" title=""{title} "">
     <img src=""{html_url}?raw=true"" {_maxheight}/>
