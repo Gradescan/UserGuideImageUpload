@@ -16,16 +16,16 @@ namespace ExcelWordImageUploader
         {
             this.txtExcelApp = new System.Windows.Forms.TextBox();
             this.txtWordApp = new System.Windows.Forms.TextBox();
-            this.btnUpload = new System.Windows.Forms.Button();
+            this.btnUploadImages = new System.Windows.Forms.Button();
             this.lblExcel = new System.Windows.Forms.Label();
             this.lblWord = new System.Windows.Forms.Label();
             this.lblSheet = new System.Windows.Forms.Label();
             this.btnBrowseExcel = new System.Windows.Forms.Button();
             this.btnBrowseWord = new System.Windows.Forms.Button();
-            this.picBoxOldImage = new System.Windows.Forms.PictureBox();
-            this.labelOldImage = new System.Windows.Forms.Label();
-            this.labelNewImage = new System.Windows.Forms.Label();
-            this.picBoxNewImage = new System.Windows.Forms.PictureBox();
+            this.picBoxGitRepoImage = new System.Windows.Forms.PictureBox();
+            this.labelExistingImage = new System.Windows.Forms.Label();
+            this.labelWordImage = new System.Windows.Forms.Label();
+            this.picBoxWordImage = new System.Windows.Forms.PictureBox();
             this.picBoxPanel = new System.Windows.Forms.Panel();
             this.listBoxCollisions = new System.Windows.Forms.ListBox();
             this.labelCollisions = new System.Windows.Forms.Label();
@@ -37,8 +37,9 @@ namespace ExcelWordImageUploader
             this.btnAssign = new System.Windows.Forms.Button();
             this.lblStatus = new System.Windows.Forms.Label();
             this.labelStatus = new System.Windows.Forms.Label();
-            ((System.ComponentModel.ISupportInitialize)(this.picBoxOldImage)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.picBoxNewImage)).BeginInit();
+            this.btnCreateAIFile = new System.Windows.Forms.Button();
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxGitRepoImage)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxWordImage)).BeginInit();
             this.picBoxPanel.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -60,18 +61,18 @@ namespace ExcelWordImageUploader
             this.txtWordApp.Size = new System.Drawing.Size(959, 29);
             this.txtWordApp.TabIndex = 6;
             // 
-            // btnUpload
+            // btnUploadImages
             // 
-            this.btnUpload.BackColor = System.Drawing.Color.LawnGreen;
-            this.btnUpload.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnUpload.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnUpload.Location = new System.Drawing.Point(653, 144);
-            this.btnUpload.Name = "btnUpload";
-            this.btnUpload.Size = new System.Drawing.Size(168, 104);
-            this.btnUpload.TabIndex = 8;
-            this.btnUpload.Text = "Upload Images Set Alt Text";
-            this.btnUpload.UseVisualStyleBackColor = false;
-            this.btnUpload.Click += new System.EventHandler(this.btnUpload_Click);
+            this.btnUploadImages.BackColor = System.Drawing.Color.LawnGreen;
+            this.btnUploadImages.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUploadImages.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnUploadImages.Location = new System.Drawing.Point(653, 144);
+            this.btnUploadImages.Name = "btnUploadImages";
+            this.btnUploadImages.Size = new System.Drawing.Size(168, 59);
+            this.btnUploadImages.TabIndex = 8;
+            this.btnUploadImages.Text = "Upload Images";
+            this.btnUploadImages.UseVisualStyleBackColor = false;
+            this.btnUploadImages.Click += new System.EventHandler(this.btnUploadImages_Click);
             // 
             // lblExcel
             // 
@@ -123,60 +124,60 @@ namespace ExcelWordImageUploader
             this.btnBrowseWord.Text = "...";
             this.btnBrowseWord.Click += new System.EventHandler(this.btnBrowseWord_Click);
             // 
-            // picBoxOldImage
+            // picBoxGitRepoImage
             // 
-            this.picBoxOldImage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.picBoxOldImage.Location = new System.Drawing.Point(6, 8);
-            this.picBoxOldImage.Name = "picBoxOldImage";
-            this.picBoxOldImage.Size = new System.Drawing.Size(579, 343);
-            this.picBoxOldImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.picBoxOldImage.TabIndex = 12;
-            this.picBoxOldImage.TabStop = false;
+            this.picBoxGitRepoImage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.picBoxGitRepoImage.Location = new System.Drawing.Point(8, 7);
+            this.picBoxGitRepoImage.Name = "picBoxGitRepoImage";
+            this.picBoxGitRepoImage.Size = new System.Drawing.Size(579, 350);
+            this.picBoxGitRepoImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+            this.picBoxGitRepoImage.TabIndex = 12;
+            this.picBoxGitRepoImage.TabStop = false;
             // 
-            // labelOldImage
+            // labelExistingImage
             // 
-            this.labelOldImage.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.labelOldImage.AutoSize = true;
-            this.labelOldImage.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.labelOldImage.Location = new System.Drawing.Point(279, 261);
-            this.labelOldImage.Name = "labelOldImage";
-            this.labelOldImage.Size = new System.Drawing.Size(82, 21);
-            this.labelOldImage.TabIndex = 13;
-            this.labelOldImage.Text = "Old Image";
-            this.labelOldImage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.labelExistingImage.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.labelExistingImage.AutoSize = true;
+            this.labelExistingImage.Font = new System.Drawing.Font("Segoe UI", 12F);
+            this.labelExistingImage.Location = new System.Drawing.Point(205, 295);
+            this.labelExistingImage.Name = "labelExistingImage";
+            this.labelExistingImage.Size = new System.Drawing.Size(172, 21);
+            this.labelExistingImage.TabIndex = 13;
+            this.labelExistingImage.Text = "Existing git Repo Image";
+            this.labelExistingImage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // labelNewImage
+            // labelWordImage
             // 
-            this.labelNewImage.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.labelWordImage.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.labelNewImage.AutoSize = true;
-            this.labelNewImage.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.labelNewImage.Location = new System.Drawing.Point(737, 266);
-            this.labelNewImage.Name = "labelNewImage";
-            this.labelNewImage.Size = new System.Drawing.Size(89, 21);
-            this.labelNewImage.TabIndex = 14;
-            this.labelNewImage.Text = "New Image";
-            this.labelNewImage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.labelWordImage.AutoSize = true;
+            this.labelWordImage.Font = new System.Drawing.Font("Segoe UI", 12F);
+            this.labelWordImage.Location = new System.Drawing.Point(836, 291);
+            this.labelWordImage.Name = "labelWordImage";
+            this.labelWordImage.Size = new System.Drawing.Size(95, 21);
+            this.labelWordImage.TabIndex = 14;
+            this.labelWordImage.Text = "Word Image";
+            this.labelWordImage.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // picBoxNewImage
+            // picBoxWordImage
             // 
-            this.picBoxNewImage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.picBoxNewImage.Location = new System.Drawing.Point(608, 9);
-            this.picBoxNewImage.Name = "picBoxNewImage";
-            this.picBoxNewImage.Size = new System.Drawing.Size(565, 343);
-            this.picBoxNewImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.picBoxNewImage.TabIndex = 15;
-            this.picBoxNewImage.TabStop = false;
+            this.picBoxWordImage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.picBoxWordImage.Location = new System.Drawing.Point(610, 7);
+            this.picBoxWordImage.Name = "picBoxWordImage";
+            this.picBoxWordImage.Size = new System.Drawing.Size(565, 350);
+            this.picBoxWordImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+            this.picBoxWordImage.TabIndex = 15;
+            this.picBoxWordImage.TabStop = false;
             // 
             // picBoxPanel
             // 
             this.picBoxPanel.BackColor = System.Drawing.SystemColors.Control;
-            this.picBoxPanel.Controls.Add(this.picBoxNewImage);
-            this.picBoxPanel.Controls.Add(this.picBoxOldImage);
-            this.picBoxPanel.Location = new System.Drawing.Point(4, 298);
+            this.picBoxPanel.Controls.Add(this.picBoxWordImage);
+            this.picBoxPanel.Controls.Add(this.picBoxGitRepoImage);
+            this.picBoxPanel.Location = new System.Drawing.Point(3, 323);
             this.picBoxPanel.Name = "picBoxPanel";
-            this.picBoxPanel.Size = new System.Drawing.Size(1179, 358);
+            this.picBoxPanel.Size = new System.Drawing.Size(1179, 365);
             this.picBoxPanel.TabIndex = 16;
             // 
             // listBoxCollisions
@@ -186,7 +187,7 @@ namespace ExcelWordImageUploader
             this.listBoxCollisions.ItemHeight = 21;
             this.listBoxCollisions.Location = new System.Drawing.Point(170, 184);
             this.listBoxCollisions.Name = "listBoxCollisions";
-            this.listBoxCollisions.Size = new System.Drawing.Size(385, 67);
+            this.listBoxCollisions.Size = new System.Drawing.Size(385, 88);
             this.listBoxCollisions.TabIndex = 17;
             // 
             // labelCollisions
@@ -226,9 +227,9 @@ namespace ExcelWordImageUploader
             this.labelFileName.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labelFileName.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
-            this.labelFileName.Location = new System.Drawing.Point(341, 266);
+            this.labelFileName.Location = new System.Drawing.Point(399, 291);
             this.labelFileName.Name = "labelFileName";
-            this.labelFileName.Size = new System.Drawing.Size(501, 21);
+            this.labelFileName.Size = new System.Drawing.Size(392, 28);
             this.labelFileName.TabIndex = 21;
             this.labelFileName.Text = "file name";
             this.labelFileName.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -295,9 +296,23 @@ namespace ExcelWordImageUploader
             this.labelStatus.TabIndex = 27;
             this.labelStatus.Text = "...";
             // 
+            // btnCreateAIFile
+            // 
+            this.btnCreateAIFile.BackColor = System.Drawing.Color.Lime;
+            this.btnCreateAIFile.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCreateAIFile.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnCreateAIFile.Location = new System.Drawing.Point(653, 218);
+            this.btnCreateAIFile.Name = "btnCreateAIFile";
+            this.btnCreateAIFile.Size = new System.Drawing.Size(168, 59);
+            this.btnCreateAIFile.TabIndex = 28;
+            this.btnCreateAIFile.Text = "Create .txt File";
+            this.btnCreateAIFile.UseVisualStyleBackColor = false;
+            this.btnCreateAIFile.Click += new System.EventHandler(this.btnCreateTxtFile_Click);
+            // 
             // Form1
             // 
-            this.ClientSize = new System.Drawing.Size(1184, 661);
+            this.ClientSize = new System.Drawing.Size(1184, 691);
+            this.Controls.Add(this.btnCreateAIFile);
             this.Controls.Add(this.labelStatus);
             this.Controls.Add(this.lblStatus);
             this.Controls.Add(this.btnAssign);
@@ -309,20 +324,20 @@ namespace ExcelWordImageUploader
             this.Controls.Add(this.labelCollisions);
             this.Controls.Add(this.listBoxCollisions);
             this.Controls.Add(this.picBoxPanel);
-            this.Controls.Add(this.labelNewImage);
-            this.Controls.Add(this.labelOldImage);
+            this.Controls.Add(this.labelWordImage);
+            this.Controls.Add(this.labelExistingImage);
             this.Controls.Add(this.lblExcel);
             this.Controls.Add(this.lblWord);
             this.Controls.Add(this.lblSheet);
             this.Controls.Add(this.txtExcelApp);
             this.Controls.Add(this.txtWordApp);
-            this.Controls.Add(this.btnUpload);
+            this.Controls.Add(this.btnUploadImages);
             this.Controls.Add(this.btnBrowseExcel);
             this.Controls.Add(this.btnBrowseWord);
             this.Name = "Form1";
             this.Text = "Excel to GitHub Uploader";
-            ((System.ComponentModel.ISupportInitialize)(this.picBoxOldImage)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.picBoxNewImage)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxGitRepoImage)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picBoxWordImage)).EndInit();
             this.picBoxPanel.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -332,16 +347,16 @@ namespace ExcelWordImageUploader
         #endregion
         private System.Windows.Forms.TextBox txtExcelApp;
         private System.Windows.Forms.TextBox txtWordApp;
-        private System.Windows.Forms.Button btnUpload;
+        private System.Windows.Forms.Button btnUploadImages;
         private System.Windows.Forms.Label lblExcel;
         private System.Windows.Forms.Label lblWord;
         private System.Windows.Forms.Label lblSheet;
         private System.Windows.Forms.Button btnBrowseExcel;
         private System.Windows.Forms.Button btnBrowseWord;
-        private System.Windows.Forms.PictureBox picBoxOldImage;
-        private System.Windows.Forms.Label labelOldImage;
-        private System.Windows.Forms.Label labelNewImage;
-        private System.Windows.Forms.PictureBox picBoxNewImage;
+        private System.Windows.Forms.PictureBox picBoxGitRepoImage;
+        private System.Windows.Forms.Label labelExistingImage;
+        private System.Windows.Forms.Label labelWordImage;
+        private System.Windows.Forms.PictureBox picBoxWordImage;
         private System.Windows.Forms.Panel picBoxPanel;
         private System.Windows.Forms.ListBox listBoxCollisions;
         private System.Windows.Forms.Label labelCollisions;
@@ -353,5 +368,6 @@ namespace ExcelWordImageUploader
         private System.Windows.Forms.Button btnAssign;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Label labelStatus;
+        private System.Windows.Forms.Button btnCreateAIFile;
     }
 }

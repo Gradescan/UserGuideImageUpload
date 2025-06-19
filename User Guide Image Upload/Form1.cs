@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -29,20 +30,36 @@ namespace ExcelWordImageUploader
         private int COL_COLOR;
         private int COL_TRANSFORM;
         private int COL_ICON;
-        private int COL_ALT_TEXT_ID;
         private int COL_ALT_TEXT;
         private int COL_MAX_HEIGHT;
 
         //-----------------------------------------------------------------------------------------
+        public class GitReadStatus
+        {
+            public string message { get; set; }
+            public string documentation_url { get; set; }
+            public string status { get; set; }
+        }
+        //-----------------------------------------------------------------------------------------
+        public class GitHubFileInfo
+        {
+            public string sha { get; set; }
+            public string url { get; set; }
+            public string html_url { get; set; }
+            public string content { get; set; }
+            public string encoding { get; set; }
+        }
+        //-----------------------------------------------------------------------------------------
         private WorksheetItem[] worksheetItems = new[]
         {
-            new WorksheetItem("Professional Edition", 1001),
-            new WorksheetItem("Basic Edition", 2001),
-            new WorksheetItem("Professional Forms", 3001),
-            new WorksheetItem("Basic Forms", 4001),
+            new WorksheetItem("Professional Edition", 1000),
+            new WorksheetItem("Basic Edition", 2000),
+            new WorksheetItem("Professional Forms", 3000),
+            new WorksheetItem("Basic Forms", 4000),
         };
-
+        //-----------------------------------------------------------------------------------------
         private const string SelectaUserGuide = "Select a User Guide";
+        private List<(string name, string sha)> _cachedImageFilesInRepo = null;
 
         //-----------------------------------------------------------------------------------------
         private string GitHubToken;
@@ -68,11 +85,12 @@ namespace ExcelWordImageUploader
 
             comboBoxWorksheet.DataSource = worksheetItems;
             comboBoxWorksheet.DisplayMember = "worksheetItemName";      // Text shown in dropdown
-            comboBoxWorksheet.ValueMember = "startingTagNumber";    // Value you can access later
+            comboBoxWorksheet.ValueMember = "baseImageFileNumber";    // Value you can access later
+            comboBoxWorksheet.SelectedIndex = 1;
 
             txtWordApp.Text = SelectaUserGuide;
 
-            comboBoxWorksheet.SelectedIndex = 1;
+            _cachedImageFilesInRepo = null;
         }
         //-----------------------------------------------------------------------------------------
         private void Form1_Load(object sender, EventArgs e)
@@ -85,7 +103,7 @@ namespace ExcelWordImageUploader
             this.Location = new Point((screenWidth - formWidth) / 2, 5);  // X = center, Y = 0 (top)
         }
         //-----------------------------------------------------------------------------------------
-        private async void btnUpload_Click(object sender, EventArgs e)
+        private async void btnUploadImages_Click(object sender, EventArgs e)
         {
             Stop = false;
 
@@ -111,7 +129,6 @@ namespace ExcelWordImageUploader
                 COL_ERRORS = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Errors");
                 COL_FILENAME = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "File Name");
                 COL_TITLE = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Title");
-                COL_ALT_TEXT_ID = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "AltTextId");
                 COL_ICON = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Icon");
                 COL_COLOR = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Color");
                 COL_TRANSFORM = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Transform");
@@ -126,6 +143,8 @@ namespace ExcelWordImageUploader
 
                 DialogResult msgResult;
                 bool keepChecking = true;
+
+                // Verify Image Names are in sequence
                 for (int row = 3; row < 1000; row++)        // first row is header
                 {
                     BeginInvoke((Action)(() => labelStatus.Text = worksheet.Cells[row - 1, COL_IMAGE_NAME].Text));
@@ -133,8 +152,8 @@ namespace ExcelWordImageUploader
 
                     if (!string.IsNullOrEmpty(worksheet.Cells[row, COL_IMAGE_NAME].Text))
                     {
-                        int row0 = int.Parse(worksheet.Cells[row - 1, COL_ALT_TEXT_ID].Text);
-                        int row1 = int.Parse(worksheet.Cells[row, COL_ALT_TEXT_ID].Text);
+                        int row0 = ExtractImageNumber(worksheet.Cells[row - 1, COL_IMAGE_NAME].Text);
+                        int row1 = ExtractImageNumber(worksheet.Cells[row, COL_IMAGE_NAME].Text);
                         if (row0 + 1 != row1)
                         {
                             msgResult = MessageBox.Show("Out of sequence at row " + row.ToString(), "Continue?", MessageBoxButtons.OKCancel);
@@ -144,19 +163,28 @@ namespace ExcelWordImageUploader
                     }
                     else
                     {
-                        msgResult = MessageBox.Show("Last Image Name = " + worksheet.Cells[row-1, COL_IMAGE_NAME].Text, "Continue?", MessageBoxButtons.OKCancel);
+                        msgResult = MessageBox.Show("Image names are sequential. Last Image Name = " + worksheet.Cells[row-1, COL_IMAGE_NAME].Text, "Continue?", MessageBoxButtons.OKCancel);
                         if (msgResult == DialogResult.Cancel)
                             return;
                         else
                             break;
                     }
+                    BeginInvoke((Action)(() => labelStatus.Text = worksheet.Cells[row - 1, COL_IMAGE_NAME].Text));
+                    Application.DoEvents();
                 }
-                for (int row = 2; row < 1000; row++)        // first row is header
+
+                int baseImageValue = (int)comboBoxWorksheet.SelectedValue;
+
+                for (int row = 2; row < 999; row++)        // first row is header
                 {
+                    Application.DoEvents();
+
                     if (Stop)
                     {
+                        Application.DoEvents();
                         excelPackage.Save();     // background cell colors
                         MessageBox.Show("Stopped");
+                        Application.DoEvents();
                         return;
                     }
 
@@ -165,14 +193,58 @@ namespace ExcelWordImageUploader
                     // required. stop if not found
                     string sourceImageName = worksheet.Cells[row, COL_IMAGE_NAME].Text;
                     if (string.IsNullOrWhiteSpace(sourceImageName))
+                    {
+                        // ensure there are no varants with this image number that may have formerly been images in git repo
+                        string delImageNumber = (baseImageValue + row - 1).ToString();
+                        BeginInvoke((Action)(() => labelStatus.Text = "Deleting " + delImageNumber));
+                        await DeleteImagesByPrefixAsync(delImageNumber, string.Empty);
+                        continue;
+                    }
+                    //// required. stop if not found
+                    //string altTextId = worksheet.Cells[row, COL_IMAGE_ID].Text;
+                    //if (string.IsNullOrWhiteSpace(altTextId))
+                    //    break;
+
+
+
+
+
+                    //BeginInvoke((Action)(() => labelWordImage.Text = sourceImageName));
+                    Application.DoEvents();
+
+                    string internalPath = "word/media/" + sourceImageName;
+                    ZipArchiveEntry wordMediaImage = wordAppAsZip.GetEntry(internalPath);
+                    if (wordMediaImage == null)
+                    {
+                        Console.WriteLine("Image not found: " + sourceImageName);
+                        continue;
+                    }
+
+                    byte[] wordDocImageBytes;
+                    using (Stream sourceStream = wordMediaImage.Open())
+                    {
+                        using (MemoryStream ms = new MemoryStream())
+                        {
+                            sourceStream.CopyTo(ms);
+                            wordDocImageBytes = ms.ToArray();
+                        }
+                    }
+                    //int wordDocImageHash =  wordDocImageBytes.Aggregate(17, (current, b) => current * 31 + b);
+                    string wordDocImageSha = ComputeGitHubBlobSha(wordDocImageBytes);
+
+                    Bitmap wordBitmap;
+                    using (var ms = new MemoryStream(wordDocImageBytes))
+                    {
+                        wordBitmap = new Bitmap(ms);
+                    }
+
+                    // construct image number
+                    int imageNumber = ExtractImageNumber(worksheet.Cells[row, COL_IMAGE_NAME].Text);
+                    string destImageNumber = (baseImageValue + imageNumber).ToString();
+                    if (string.IsNullOrWhiteSpace(destImageNumber))
                         break;
 
-                    // required. stop if not found
-                    string altTextId = worksheet.Cells[row, COL_ALT_TEXT_ID].Text;
-                    if (string.IsNullOrWhiteSpace(altTextId))
-                        break;
-
-
+                    string destFileName = string.Empty;
 
                     string title = worksheet.Cells[row, COL_TITLE].Text;
 
@@ -186,136 +258,133 @@ namespace ExcelWordImageUploader
                         string transform = worksheet.Cells[row, COL_TRANSFORM].Text;
 
                         // record the Alt Text to be written (by another process) to the User Guide
-                        string altTextValue = GetAltText(icon, title, colour, transform, altTextId);
+                        string altTextValue = GetAltText(icon, title, colour, transform, destImageNumber);
                         SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
+
+                        // ensure there are no varants with this image number that may have formerly been images in git repo
+                        await DeleteImagesByPrefixAsync(destImageNumber, string.Empty);
                         continue;
                     }
-
-                    // upload image to repo
-
-                    string destFileName = worksheet.Cells[row, COL_FILENAME].Text;
-                    if (string.IsNullOrWhiteSpace(destFileName))
-                        continue;
-
-                    string destAltTextId = worksheet.Cells[row, COL_ALT_TEXT_ID].Text;
-                    if (string.IsNullOrWhiteSpace(destAltTextId))
-                        continue;
-
-                    // ensures no duplicate file names
-                    destFileName = worksheet.Cells[row, COL_ALT_TEXT_ID].Text + "-" + destFileName;
-
-                    BeginInvoke((Action)(() => labelNewImage.Text = sourceImageName));
-                    Application.DoEvents();
-
-                    string internalPath = "word/media/" + sourceImageName;
-                    ZipArchiveEntry wordMediaImage = wordAppAsZip.GetEntry(internalPath);
-                    if (wordMediaImage == null)
+                    else
                     {
-                        Console.WriteLine("Image not found: " + sourceImageName);
-                        continue;
+                        // get the file name from Excel
+                        string excelFileName = worksheet.Cells[row, COL_FILENAME].Text;
+                        // next row if no File Name
+                        if (string.IsNullOrWhiteSpace(excelFileName))
+                            continue;
+
+                        // ensures no duplicate file names across User Guides
+                        destFileName = destImageNumber + "-" + excelFileName;
                     }
 
-                    byte[] newImageBytes;
-                    using (Stream sourceStream = wordMediaImage.Open())
+                    string json = await GetFileRepoAsync(destFileName).ConfigureAwait(false);
+                    if (json == null)
                     {
-                        using (MemoryStream ms = new MemoryStream())
+                        // the exact filename does NOT exist in git repo
+                        // record in listbox
+                        SafeSetCellValue(worksheet, row, COL_ERRORS, "New");
+
+                        BeginInvoke((Action)(() =>
                         {
-                            sourceStream.CopyTo(ms);
-                            newImageBytes = ms.ToArray();
+                            listBoxCollisions.Items.Add(destFileName);
+                            picBoxPanel.BackColor = Color.Red;
+                            Application.DoEvents();
+                            //MessageBox.Show("MisMatch: " + destFileName);
+                        }));
+
+                        // ensure there are no varants with this image number
+                        await DeleteImagesByPrefixAsync(destImageNumber, string.Empty);
+
+                        // push the image to the repo
+                        bool push_result = PutFileRepoAsync(destFileName, string.Empty, wordDocImageBytes).GetAwaiter().GetResult();
+                        if (!push_result)
+                        {
+                            Console.WriteLine("Upload failed: " + destFileName);
+                            MessageBox.Show("Upload failed: " + destFileName);
                         }
-                    }
-                    int newHash = newImageBytes.Aggregate(17, (current, b) => current * 31 + b);
 
-                    Bitmap bitmap;
-                    using (var ms = new MemoryStream(newImageBytes))
-                    {
-                        bitmap = new Bitmap(ms);
-                    }
-                    picBoxNewImage.Image = bitmap;
-                    // show the media image
-                    BeginInvoke((Action)(() => labelFileName.Text = sourceImageName));
-                    Application.DoEvents();
+                        json = await GetFileRepoAsync(destFileName).ConfigureAwait(false);
 
-                    string sha = string.Empty;
-
-                    string objinfo = await GetFileRepoAsync(destFileName).ConfigureAwait(false);
-                    if (objinfo != null)
-                    {
-                        dynamic obj = JsonConvert.DeserializeObject(objinfo);
+                        GitHubFileInfo fileInfo = JsonConvert.DeserializeObject<GitHubFileInfo>(json);
 
                         // lookup the existing image
-                        string html_url = (string)obj.html_url;
+                        string html_url = (string)fileInfo.html_url;
+
+                        string max_height = worksheet.Cells[row, COL_MAX_HEIGHT].Text;
 
                         // record the Alt Text to be written (by another process) to the User Guide
-                        //string altTextValue = GetAltText(html_url, title, altTextId);
-                        //SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
+                        string altTextValue = GetAltText(html_url, title, max_height, destImageNumber);
+                        SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
 
-                        string base64 = (string)obj.content;
+                        // show the images in the repo
+                        BeginInvoke((Action)(() =>
+                        {
+                            labelFileName.Text = destFileName;
+                            labelWordImage.Text = sourceImageName;
+                            picBoxWordImage.Image = (Image)wordBitmap.Clone();
+                            picBoxGitRepoImage.Image = null;
+                            picBoxPanel.BackColor = SystemColors.Control;
+                        }));
+                    }
+                    else
+                    {
+                        // the exact filename DOES exist in git repo
+
+                        GitHubFileInfo fileInfo = JsonConvert.DeserializeObject<GitHubFileInfo>(json);
+
+                        // lookup the existing image
+                        string html_url = (string)fileInfo.html_url;
+
+                        string max_height = worksheet.Cells[row, COL_MAX_HEIGHT].Text;
+
+                        // record the Alt Text to be written (by another process) to the User Guide
+                        string altTextValue = GetAltText(html_url, title, max_height, destImageNumber);
+                        SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
+
+                        string base64 = (string)fileInfo.content;
                         base64 = base64.Replace("\n", "").Replace("\r", ""); // GitHub adds newlines to base64 output
 
-                        byte[] oldImageBytes = Convert.FromBase64String(base64);
-                        int oldHash = oldImageBytes.Aggregate(17, (current, b) => current * 31 + b);
+                        byte[] gitRepoImageBytes = Convert.FromBase64String(base64);
 
-                        using (Stream sourceStream = wordMediaImage.Open())
+                        Bitmap gitBitmap;
+                        using (var ms = new MemoryStream(gitRepoImageBytes))
                         {
-                            using (MemoryStream ms = new MemoryStream())
-                            {
-                                sourceStream.CopyTo(ms);
-                                oldImageBytes = ms.ToArray();
-                            }
+                            gitBitmap = new Bitmap(ms);
                         }
-
-                        using (var ms = new MemoryStream(oldImageBytes))
+                        // show the images in the repo
+                        BeginInvoke((Action)(() =>
                         {
-                            bitmap = new Bitmap(ms);
-                        }
-                        // show the image in the repo
-                        picBoxOldImage.Image = bitmap;
-                        picBoxPanel.BackColor = Color.PaleGreen;
+                            labelFileName.Text = destFileName;
+                            labelWordImage.Text = sourceImageName;
+                            picBoxWordImage.Image = (Image)wordBitmap.Clone();
+                            picBoxGitRepoImage.Image = (Image)gitBitmap.Clone();
+                            picBoxPanel.BackColor = Color.PaleGreen;
+                        }));
+                        // ensure there are no varants with this filename's image number
+                        await DeleteImagesByPrefixAsync(destImageNumber, destFileName);
 
-                        sha = (string)obj.sha;
-                        System.Diagnostics.Debug.WriteLine("SHA: " + sha);
-
-                        if (newHash != oldHash)
+                        // upload the image if the sha(s) don't match
+                        if (fileInfo.sha != wordDocImageSha)
                         {
                             //worksheet.Cells[row, 3].Value = "Error";
-                            SafeSetCellValue(worksheet, row, COL_ERRORS, "Error");
-                            BeginInvoke((Action)(() => listBoxCollisions.Items.Add(destFileName)));
-                            Application.DoEvents();
-                            picBoxPanel.BackColor = Color.Red;
-                //            MessageBox.Show("MisMatch: " + destFileName);
-                        }
-                    }
-                    else
-                    {
-                        picBoxOldImage.Image = null;
-                        picBoxPanel.BackColor = SystemColors.Control;
-                    }
-                    // push the image to the repo
-                    bool result = PutFileRepoAsync(destFileName, sha, newImageBytes).GetAwaiter().GetResult();
-
-                    if (result)
-                    {
-                        objinfo = await GetFileRepoAsync(destFileName).ConfigureAwait(false);
-                        if (objinfo != null)
-                        {
-                            dynamic obj = JsonConvert.DeserializeObject(objinfo);
-
-                            if (string.IsNullOrEmpty(icon))
+                            SafeSetCellValue(worksheet, row, COL_ERRORS, "SHA mismatch");
+                            BeginInvoke((Action)(() =>
                             {
-                                string html_url = (string)obj.html_url;
-                                string max_height = worksheet.Cells[row, COL_MAX_HEIGHT].Text;
-                                // record the Alt Text to be written (by another process) to the User Guide
-                                string altTextValue = GetAltText(html_url, title, max_height, altTextId);
-                                SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
+                                listBoxCollisions.Items.Add(destFileName);
+                                picBoxPanel.BackColor = Color.Red;
+                                Application.DoEvents();
+                                //MessageBox.Show("MisMatch: " + destFileName);
+                            }));
+                            // push the image to the repo
+                            bool push_result = PutFileRepoAsync(destFileName, fileInfo.sha, wordDocImageBytes).GetAwaiter().GetResult();
+                            if (!push_result)
+                            {
+                                Console.WriteLine("Upload failed: " + destFileName);
+                                MessageBox.Show("Upload failed: " + destFileName);
                             }
                         }
                     }
-                    else
-                    {
-                        Console.WriteLine("Upload failed: " + destFileName);
-                        MessageBox.Show("Upload failed: " + destFileName);
-                    }
+                    Application.DoEvents();
                 }
                 excelPackage.Save();     // background cell colors
 
@@ -333,6 +402,307 @@ namespace ExcelWordImageUploader
                 if (excelPackage != null) excelPackage.Dispose();
             }
         }
+        //-----------------------------------------------------------------------------------------
+        private async Task<List<(string name, string sha)>> ListImageFilesInRepoAsync()
+        {
+            if (_cachedImageFilesInRepo != null)
+                return _cachedImageFilesInRepo;
+
+            string url = $"https://api.github.com/repos/Gradescan/images/contents";
+
+            var files = new List<(string, string)>();
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UploaderApp", "1.0"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", GitHubToken);
+
+                try
+                {
+                    HttpResponseMessage response = await client.GetAsync(url).ConfigureAwait(false);
+                    string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!response.IsSuccessStatusCode)
+                        return files;
+
+                    dynamic items = JsonConvert.DeserializeObject(json);
+
+                    foreach (var item in items)
+                    {
+                        string name = item.name;
+                        string sha = item.sha;
+
+                        if (name.EndsWith(".png"))
+                            files.Add((name, sha));
+                    }
+
+                    _cachedImageFilesInRepo = files;
+                    return files;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("List error: " + ex.Message);
+                    return files;
+                }
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private async Task DeleteImagesByPrefixAsync(string destImageNumber, string exceptFileName)
+        {
+            var files = await ListImageFilesInRepoAsync();
+            string fileName = $"{exceptFileName}.png";
+
+            foreach (var (name, sha) in files)
+            {
+                if (name.StartsWith(destImageNumber + "-")
+                 && name != fileName)
+                {
+                    bool deleted = await DeleteFileFromRepoAsync(name, sha);
+                    if (deleted)
+                        Console.WriteLine($"Deleted: {name}");
+                    else
+                        Console.WriteLine($"Failed to delete: {name}");
+
+                    Application.DoEvents();
+                }
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private async Task<bool> DeleteFileFromRepoAsync(string fileName, string sha)
+        {
+            string url = $"https://api.github.com/repos/Gradescan/images/contents/{Uri.EscapeDataString(fileName)}";
+
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UploaderApp", "1.0"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", GitHubToken);
+
+                var deleteBody = new
+                {
+                    message = $"Delete {fileName}",
+                    sha = sha
+                };
+
+                string json = JsonConvert.SerializeObject(deleteBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                try
+                {
+                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, url) { Content = content };
+                    HttpResponseMessage response = await client.SendAsync(request).ConfigureAwait(false);
+
+                    return response.IsSuccessStatusCode;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Delete error: " + ex.Message);
+                    return false;
+                }
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        public static string ComputeGitHubBlobSha(byte[] contentBytes)
+        {
+            string header = $"blob {contentBytes.Length}\0";
+            byte[] headerBytes = Encoding.UTF8.GetBytes(header);
+
+            byte[] blob = new byte[headerBytes.Length + contentBytes.Length];
+            Buffer.BlockCopy(headerBytes, 0, blob, 0, headerBytes.Length);
+            Buffer.BlockCopy(contentBytes, 0, blob, headerBytes.Length, contentBytes.Length);
+
+            using (SHA1 sha1 = SHA1.Create())
+            {
+                byte[] hash = sha1.ComputeHash(blob);
+                string sha = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                return sha;
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        // Add the following method to Form1.cs
+        private void btnCreateTxtFile_Click(object sender, EventArgs e)
+        {
+            if (!ValidateInputSettings())
+                return;
+
+            Word.Application wordApp = null;
+            Word.Document doc = null;
+
+            try
+            {
+                string wordAppPath = txtWordApp.Text.Trim();
+                string sheetName = comboBoxWorksheet.Text.Trim();
+                string docNameNoExt = Path.GetFileNameWithoutExtension(wordAppPath);
+                string docDir = Path.GetDirectoryName(wordAppPath);
+
+                // Load Excel map
+                string excelPath = txtExcelApp.Text.Trim();
+                var dict = LoadAltTextFromExcel_Map(excelPath, sheetName);
+
+                wordApp = new Word.Application();
+                doc = wordApp.Documents.Open(wordAppPath);
+
+                StringBuilder output = new StringBuilder();
+                StringBuilder pageBuffer = new StringBuilder();
+
+                int lastPage = -1;
+                int previousPage = 0;
+
+                foreach (Word.Paragraph para in doc.Paragraphs)
+                {
+                    Word.Range rng = para.Range;
+                    int currentPage = rng.get_Information(Word.WdInformation.wdActiveEndPageNumber);
+
+                    if (currentPage != lastPage && lastPage != -1)
+                    {
+                        pageBuffer.AppendLine($"<p>You can read the User Guide page <a href=\"{{ClientRootAddress}}/assets/docs/{EncodeURLComponent(docNameNoExt)}.pdf#page={lastPage}\" target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>");
+                        output.Append(pageBuffer);
+                        pageBuffer.Clear();
+                    }
+
+                    // Replace alt text in Shapes on this paragraph
+                    foreach (Word.Shape shp in doc.Shapes)
+                    {
+                        if (shp.Anchor.Start >= rng.Start && shp.Anchor.Start < rng.End)
+                        {
+                            string altText = shp.AlternativeText.Trim();
+                            Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
+                            if (match.Success && dict.ContainsKey(match.Groups[1].Value))
+                            {
+                                shp.AlternativeText = dict[match.Groups[1].Value];
+                            }
+                        }
+                    }
+
+                    string line = "";
+                    for (int i = 1; i <= rng.Words.Count; i++)
+                    {
+                        Word.Range word = rng.Words[i];
+
+                        if (word.InlineShapes.Count > 0)
+                        {
+                            foreach (Word.InlineShape ils in word.InlineShapes)
+                            {
+                                if (ils.Type == Word.WdInlineShapeType.wdInlineShapePicture)
+                                {
+                                    string altText = ils.AlternativeText.Trim();
+                                    Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
+                                    if (match.Success && dict.ContainsKey(match.Groups[1].Value))
+                                    {
+                                        ils.AlternativeText = dict[match.Groups[1].Value];
+                                        altText = dict[match.Groups[1].Value];
+                                    }
+                                    altText = Regex.Replace(altText, "\\[(\\d{4})\\]", "");
+                                    if (Regex.IsMatch(altText, "src=\\\"[^\\\"]+\\\""))
+                                        line += altText + Environment.NewLine;
+                                    else if (altText.Contains("<span"))
+                                        line += altText + " ";
+                                }
+                            }
+                        }
+                        else
+                        {
+                            line += word.Text;
+                        }
+                    }
+
+                    pageBuffer.Append(line);
+                    lastPage = currentPage;
+
+                    if (previousPage != currentPage)
+                    {
+                        Console.Write(previousPage == 0 ? $"Page {currentPage}" : $",{currentPage}");
+                        previousPage = currentPage;
+                    }
+                }
+
+                if (pageBuffer.Length > 0)
+                {
+                    pageBuffer.AppendLine($"<p>You can read the User Guide page <a href=\"{{ClientRootAddress}}/assets/docs/{EncodeURLComponent(docNameNoExt)}.pdf#page={lastPage}\" target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>");
+                    output.Append(pageBuffer);
+                }
+
+                string txtFilePath = Path.Combine(docDir, docNameNoExt + ".txt");
+                File.WriteAllText(txtFilePath, SanitizeControlChars(output.ToString()).Replace("\"", "\"\""));
+
+                MessageBox.Show("Export complete!\nText file: " + txtFilePath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+            finally
+            {
+                if (doc != null) { doc.Close(false); Marshal.ReleaseComObject(doc); }
+                if (wordApp != null) { wordApp.Quit(); Marshal.ReleaseComObject(wordApp); }
+                GC.Collect(); GC.WaitForPendingFinalizers();
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private Dictionary<string, string> LoadAltTextFromExcel_Map(string excelPath, string sheetName)
+        {
+            var dict = new Dictionary<string, string>();
+
+            using (var package = new ExcelPackage(new FileInfo(excelPath)))
+            {
+                ExcelWorksheet worksheet = package.Workbook.Worksheets[sheetName];
+
+                for (int row = 2; row <= worksheet.Dimension.End.Row; row++)
+                {
+                    string key = worksheet.Cells[row, COL_IMAGE_NAME].Text; // worksheet.Cells[row, colId].Text.Trim();
+
+                    string title = worksheet.Cells[row, COL_TITLE].Text;
+
+                    // upload to repo only images - not icons
+                    string icon = worksheet.Cells[row, COL_ICON].Text;
+
+                    if (false == string.IsNullOrEmpty(icon))
+                    {
+                        // this is an icon - no image in repo required.
+                        string colour = worksheet.Cells[row, COL_COLOR].Text;
+                        string transform = worksheet.Cells[row, COL_TRANSFORM].Text;
+                        string altTextId = ExtractImageNumber(worksheet.Cells[row, COL_IMAGE_NAME].Text).ToString();
+                        // record the Alt Text to be written (by another process) to the User Guide
+                        string altTextValue = GetAltText(icon, title, colour, transform, altTextId);
+                        dict[key] = altTextValue;
+                   //     SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
+                    }
+                    //string val = worksheet.Cells[row, colText].Text.Trim();
+                    //if (!string.IsNullOrEmpty(key)) dict[key] = val;
+                }
+            }
+            return dict;
+        }
+        //-----------------------------------------------------------------------------------------
+        private string EncodeURLComponent(string s)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in s)
+            {
+                if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+                    sb.Append(c);
+                else if (c == ' ')
+                    sb.Append("%20");
+                else
+                    sb.Append("%" + ((int)c).ToString("X2"));
+            }
+            return sb.ToString();
+        }
+        //-----------------------------------------------------------------------------------------
+        private string SanitizeControlChars(string text)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in text)
+            {
+                if (c == 9 || c == 10 || c == 13 || c >= 32)
+                    sb.Append(c);
+            }
+            return sb.ToString();
+        }
+        //-----------------------------------------------------------------------------------------
         //-----------------------------------------------------------------------------------------
         private async Task<byte[]> DownloadFileFromGitHubAsync(string owner, string repo, string path)
         {
@@ -401,10 +771,12 @@ namespace ExcelWordImageUploader
 
                     HttpContent httpContent = new StringContent(json, Encoding.UTF8, "application/json");
                     HttpResponseMessage response = await client.PutAsync(url, httpContent).ConfigureAwait(false);
-                    string result = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    string resultStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    GitReadStatus result = JsonConvert.DeserializeObject<GitReadStatus>(resultStr);
 
                     System.Diagnostics.Debug.WriteLine("IsSuccessStatusCode: " + response.IsSuccessStatusCode);
                     System.Diagnostics.Debug.WriteLine("ReasonPhrase: " + response.ReasonPhrase);
+                    System.Diagnostics.Debug.WriteLine("result.message: " + result.message);
 
                     return response.IsSuccessStatusCode;
                 }
@@ -551,7 +923,7 @@ namespace ExcelWordImageUploader
                 return;
 
             // Get the starting number from comboBoxWorksheet
-            int startingValue = (int)comboBoxWorksheet.SelectedValue;
+            int startingValue = (int)comboBoxWorksheet.SelectedValue + 1;
             int counter = startingValue;
             int largestNumber = counter;
 
@@ -725,6 +1097,16 @@ namespace ExcelWordImageUploader
 
         }
         //-----------------------------------------------------------------------------------------
+        private int ExtractImageNumber(string input)
+        {
+            var match = Regex.Match(input, @"^image(\d{1,3})\.png$", RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int result))
+            {
+                return result;
+            }
+            throw new ArgumentException("Input string is not in the expected format: imageDDD.png");
+        }
+        //-----------------------------------------------------------------------------------------
         private bool ValidateInputSettings()
         {
             string wordAppPath = txtWordApp.Text.Trim();
@@ -778,12 +1160,12 @@ namespace ExcelWordImageUploader
         public class WorksheetItem
         {
             public string  worksheetItemName { get; set; }
-            public int     startingTagNumber { get; set; }
+            public int     baseImageFileNumber { get; set; }
 
-            public WorksheetItem(string name, int tagnum)
+            public WorksheetItem(string name, int imgnum)
             {
                 worksheetItemName = name;
-                startingTagNumber = tagnum;
+                baseImageFileNumber = imgnum;
             }
             public override string ToString()
             {
