@@ -33,11 +33,11 @@ namespace ExcelWordImageUploader
             this.buttonStop = new System.Windows.Forms.Button();
             this.labelFileName = new System.Windows.Forms.Label();
             this.btnClearAltText = new System.Windows.Forms.Button();
-            this.btnVerify = new System.Windows.Forms.Button();
-            this.btnAssign = new System.Windows.Forms.Button();
+            this.btnVerifyAltText = new System.Windows.Forms.Button();
+            this.btnAssignAltText = new System.Windows.Forms.Button();
             this.lblStatus = new System.Windows.Forms.Label();
             this.labelStatus = new System.Windows.Forms.Label();
-            this.btnCreateAIFile = new System.Windows.Forms.Button();
+            this.btnCreateTxtFile = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.picBoxGitRepoImage)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.picBoxWordImage)).BeginInit();
             this.picBoxPanel.SuspendLayout();
@@ -247,36 +247,36 @@ namespace ExcelWordImageUploader
             this.btnClearAltText.UseVisualStyleBackColor = false;
             this.btnClearAltText.Click += new System.EventHandler(this.btnClearAltText_Click);
             // 
-            // btnVerify
+            // btnVerifyAltText
             // 
-            this.btnVerify.BackColor = System.Drawing.Color.Aqua;
-            this.btnVerify.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnVerify.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnVerify.Location = new System.Drawing.Point(903, 51);
-            this.btnVerify.Name = "btnVerify";
-            this.btnVerify.Size = new System.Drawing.Size(226, 46);
-            this.btnVerify.TabIndex = 23;
-            this.btnVerify.Text = "Verify Alt Text";
-            this.btnVerify.UseVisualStyleBackColor = false;
-            this.btnVerify.Click += new System.EventHandler(this.btnVerify_Click);
+            this.btnVerifyAltText.BackColor = System.Drawing.Color.Aqua;
+            this.btnVerifyAltText.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVerifyAltText.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnVerifyAltText.Location = new System.Drawing.Point(903, 51);
+            this.btnVerifyAltText.Name = "btnVerifyAltText";
+            this.btnVerifyAltText.Size = new System.Drawing.Size(226, 46);
+            this.btnVerifyAltText.TabIndex = 23;
+            this.btnVerifyAltText.Text = "Verify Alt Text";
+            this.btnVerifyAltText.UseVisualStyleBackColor = false;
+            this.btnVerifyAltText.Click += new System.EventHandler(this.btnVerifyAltText_Click);
             // 
-            // btnAssign
+            // btnAssignAltText
             // 
-            this.btnAssign.BackColor = System.Drawing.Color.Fuchsia;
-            this.btnAssign.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnAssign.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnAssign.Location = new System.Drawing.Point(484, 51);
-            this.btnAssign.Name = "btnAssign";
-            this.btnAssign.Size = new System.Drawing.Size(225, 46);
-            this.btnAssign.TabIndex = 24;
-            this.btnAssign.Text = "Assign Alt Text";
-            this.btnAssign.UseVisualStyleBackColor = false;
-            this.btnAssign.Click += new System.EventHandler(this.btnAssign_Click);
+            this.btnAssignAltText.BackColor = System.Drawing.Color.Fuchsia;
+            this.btnAssignAltText.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAssignAltText.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnAssignAltText.Location = new System.Drawing.Point(484, 51);
+            this.btnAssignAltText.Name = "btnAssignAltText";
+            this.btnAssignAltText.Size = new System.Drawing.Size(225, 46);
+            this.btnAssignAltText.TabIndex = 24;
+            this.btnAssignAltText.Text = "Assign Alt Text";
+            this.btnAssignAltText.UseVisualStyleBackColor = false;
+            this.btnAssignAltText.Click += new System.EventHandler(this.btnAssignAltText_Click);
             // 
             // lblStatus
             // 
             this.lblStatus.AutoSize = true;
-            this.lblStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Underline, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblStatus.Location = new System.Drawing.Point(838, 167);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(60, 24);
@@ -285,38 +285,34 @@ namespace ExcelWordImageUploader
             // 
             // labelStatus
             // 
-            this.labelStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.labelStatus.AutoSize = true;
             this.labelStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labelStatus.Location = new System.Drawing.Point(838, 198);
             this.labelStatus.Name = "labelStatus";
-            this.labelStatus.Size = new System.Drawing.Size(25, 24);
+            this.labelStatus.Size = new System.Drawing.Size(133, 74);
             this.labelStatus.TabIndex = 27;
             this.labelStatus.Text = "...";
             // 
-            // btnCreateAIFile
+            // btnCreateTxtFile
             // 
-            this.btnCreateAIFile.BackColor = System.Drawing.Color.Lime;
-            this.btnCreateAIFile.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnCreateAIFile.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnCreateAIFile.Location = new System.Drawing.Point(653, 218);
-            this.btnCreateAIFile.Name = "btnCreateAIFile";
-            this.btnCreateAIFile.Size = new System.Drawing.Size(168, 59);
-            this.btnCreateAIFile.TabIndex = 28;
-            this.btnCreateAIFile.Text = "Create .txt File";
-            this.btnCreateAIFile.UseVisualStyleBackColor = false;
-            this.btnCreateAIFile.Click += new System.EventHandler(this.btnCreateTxtFile_Click);
+            this.btnCreateTxtFile.BackColor = System.Drawing.Color.Lime;
+            this.btnCreateTxtFile.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCreateTxtFile.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnCreateTxtFile.Location = new System.Drawing.Point(653, 218);
+            this.btnCreateTxtFile.Name = "btnCreateTxtFile";
+            this.btnCreateTxtFile.Size = new System.Drawing.Size(168, 59);
+            this.btnCreateTxtFile.TabIndex = 28;
+            this.btnCreateTxtFile.Text = "Create .txt File";
+            this.btnCreateTxtFile.UseVisualStyleBackColor = false;
+            this.btnCreateTxtFile.Click += new System.EventHandler(this.btnCreateTxtFile_Click);
             // 
             // Form1
             // 
             this.ClientSize = new System.Drawing.Size(1184, 691);
-            this.Controls.Add(this.btnCreateAIFile);
+            this.Controls.Add(this.btnCreateTxtFile);
             this.Controls.Add(this.labelStatus);
             this.Controls.Add(this.lblStatus);
-            this.Controls.Add(this.btnAssign);
-            this.Controls.Add(this.btnVerify);
+            this.Controls.Add(this.btnAssignAltText);
+            this.Controls.Add(this.btnVerifyAltText);
             this.Controls.Add(this.btnClearAltText);
             this.Controls.Add(this.labelFileName);
             this.Controls.Add(this.buttonStop);
@@ -364,10 +360,10 @@ namespace ExcelWordImageUploader
         private System.Windows.Forms.Button buttonStop;
         private System.Windows.Forms.Label labelFileName;
         private System.Windows.Forms.Button btnClearAltText;
-        private System.Windows.Forms.Button btnVerify;
-        private System.Windows.Forms.Button btnAssign;
+        private System.Windows.Forms.Button btnVerifyAltText;
+        private System.Windows.Forms.Button btnAssignAltText;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Label labelStatus;
-        private System.Windows.Forms.Button btnCreateAIFile;
+        private System.Windows.Forms.Button btnCreateTxtFile;
     }
 }

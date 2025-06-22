@@ -33,6 +33,20 @@ namespace ExcelWordImageUploader
         private int COL_ALT_TEXT;
         private int COL_MAX_HEIGHT;
 
+        // Word
+        private string wordAppPath;
+        private string wordDocNameNoExt;
+        private string wordDocDir;
+        private Word.Application wordApp;
+        private Word.Document wordDoc;
+
+        // Excel
+        private string excelAppPath;
+        private string sheetName;
+        private ExcelPackage excelPackage;
+        private ExcelWorksheet worksheet;
+        private ZipArchive wordAppAsZip;
+
         //-----------------------------------------------------------------------------------------
         public class GitReadStatus
         {
@@ -48,6 +62,21 @@ namespace ExcelWordImageUploader
             public string html_url { get; set; }
             public string content { get; set; }
             public string encoding { get; set; }
+        }
+        //-----------------------------------------------------------------------------------------
+        public class WorksheetItem
+        {
+            public string worksheetItemName { get; set; }
+            public int baseImageFileNumber { get; set; }
+            public WorksheetItem(string name, int imgnum)
+            {
+                worksheetItemName = name;
+                baseImageFileNumber = imgnum;
+            }
+            public override string ToString()
+            {
+                return worksheetItemName;
+            }
         }
         //-----------------------------------------------------------------------------------------
         private WorksheetItem[] worksheetItems = new[]
@@ -103,38 +132,207 @@ namespace ExcelWordImageUploader
             this.Location = new Point((screenWidth - formWidth) / 2, 5);  // X = center, Y = 0 (top)
         }
         //-----------------------------------------------------------------------------------------
+        private void btnClearAltText_Click(object sender, EventArgs e)
+        {
+            labelStatus.Text = btnClearAltText.Text;
+
+            if (!ValidateInputSettings())
+                return;
+
+            wordApp = null;
+            wordDoc = null;
+
+            try
+            {
+                string wordAppPath = txtWordApp.Text.Trim();
+                wordApp = new Word.Application();
+                wordDoc = wordApp.Documents.Open(wordAppPath);
+
+                int counter = 0;
+                int convertedCount = 0;
+
+                // Clear InlineShapes Alt Text
+                foreach (Word.InlineShape shape in wordDoc.InlineShapes)
+                {
+                    if (!string.IsNullOrEmpty(shape.AlternativeText))
+                    {
+                        shape.AlternativeText = string.Empty;
+                        counter++;
+                    }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
+                }
+
+                // Clear floating Shapes Alt Text
+                foreach (Word.Shape shape in wordDoc.Shapes)
+                {
+                    // Check if it's not already inline (i.e., floating)
+                    if (shape.WrapFormat.Type != Word.WdWrapType.wdWrapInline)
+                    {
+                        // Convert to InlineShape
+                        shape.ConvertToInlineShape();
+                        convertedCount++;
+                    }
+                    if (!string.IsNullOrEmpty(shape.AlternativeText))
+                    {
+                        shape.AlternativeText = string.Empty;
+                        counter++;
+                    }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
+                }
+
+                wordDoc.Save();
+                MessageBox.Show($"Cleared AltText from {counter} shapes.  Converted {convertedCount} shapes.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+            finally
+            {
+                // Ensure file is unlocked by closing document and quitting Word
+                if (wordDoc != null)
+                {
+                    wordDoc.Close(false); // false = don't prompt to save again
+                    Marshal.ReleaseComObject(wordDoc);
+                    wordDoc = null;
+                }
+
+                if (wordApp != null)
+                {
+                    wordApp.Quit();
+                    Marshal.ReleaseComObject(wordApp);
+                    wordApp = null;
+                }
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private void btnAssignAltText_Click(object sender, EventArgs e)
+        {
+            BeginInvoke((Action)(() => labelStatus.Text = btnAssignAltText.Text));
+
+            if (!ValidateInputSettings())
+                return;
+
+            // Get the starting number from comboBoxWorksheet
+            int startingValue = (int)comboBoxWorksheet.SelectedValue + 1;
+            int counter = startingValue;
+            int largestNumber = counter;
+
+            wordApp = null;
+            wordDoc = null;
+
+            try
+            {
+                string wordAppPath = txtWordApp.Text.Trim();
+                string sheetName = comboBoxWorksheet.Text.Trim();
+
+                wordApp = new Word.Application();
+                wordDoc = wordApp.Documents.Open(wordAppPath);
+
+                // match legacy 3-digit numbers or current standar 4-digit numbers.
+                Regex pattern = new Regex(@"\[(\d{3,4})\]");
+
+
+                // Process InlineShapes
+                foreach (Word.InlineShape shape in wordDoc.InlineShapes)
+                {
+                    string altText = shape.AlternativeText ?? "";
+
+                    Match match = pattern.Match(altText);
+                    if (match.Success)
+                    {
+                        // Extract existing number and update largestNumber if greater
+                        if (int.TryParse(match.Groups[1].Value, out int foundNumber))
+                        {
+                            if (foundNumber >= largestNumber)
+                                largestNumber = foundNumber + 1;
+                        }
+                    }
+                    else
+                    {
+                        // Assign new number
+                        shape.AlternativeText = altText + "[" + counter.ToString("D4") + "]";
+                        counter++;
+                        largestNumber = counter;
+                    }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
+                }
+
+                foreach (Word.Shape shape in wordDoc.Shapes)
+                {
+                    string altText = shape.AlternativeText;
+                    if (!pattern.IsMatch(altText))
+                    {
+                        string newText = altText + "\n[" + counter.ToString("D4") + "]";
+                        shape.AlternativeText = newText;
+                        counter++;
+                    }
+                    // show the status
+                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
+                    Application.DoEvents();
+                }
+                wordDoc.Save();
+                MessageBox.Show("AltText update completed. Last value used or found = " + (largestNumber - 1).ToString());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+            finally
+            {
+                // Ensure file is unlocked by closing document and quitting Word
+                if (wordDoc != null)
+                {
+                    wordDoc.Close(false); // false = don't prompt to save again
+                    Marshal.ReleaseComObject(wordDoc);
+                    wordDoc = null;
+                }
+
+                if (wordApp != null)
+                {
+                    wordApp.Quit();
+                    Marshal.ReleaseComObject(wordApp);
+                    wordApp = null;
+                }
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private void btnVerifyAltText_Click(object sender, EventArgs e)
+        {
+            BeginInvoke((Action)(() => labelStatus.Text = btnVerifyAltText.Text));
+
+            if (!ValidateInputSettings())
+                return;
+
+        }
+        //-----------------------------------------------------------------------------------------
         private async void btnUploadImages_Click(object sender, EventArgs e)
         {
+            BeginInvoke((Action)(() => labelStatus.Text = btnUploadImages.Text));
+
             Stop = false;
 
             if (!ValidateInputSettings())
                 return;
 
-            string wordAppPath = txtWordApp.Text.Trim();
-            string excelAppPath = txtExcelApp.Text.Trim();
-            string sheetName = comboBoxWorksheet.Text.Trim();
-
-            ZipArchive wordAppAsZip = null;
-            ExcelPackage excelPackage = null;
+            InitializeGlobals();
 
             listBoxCollisions.Items.Clear();
 
             try
             {
-                wordAppAsZip = ZipFile.OpenRead(wordAppPath);
-                excelPackage = new ExcelPackage(new FileInfo(excelAppPath));
-                var worksheet = excelPackage.Workbook.Worksheets[sheetName];
-
-                COL_IMAGE_NAME = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Image Name");
-                COL_ERRORS = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Errors");
-                COL_FILENAME = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "File Name");
-                COL_TITLE = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Title");
-                COL_ICON = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Icon");
-                COL_COLOR = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Color");
-                COL_TRANSFORM = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Transform");
-                COL_ALT_TEXT = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Alt Text");
-                COL_MAX_HEIGHT = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Height Max");
-
                 // safety check - identify writeable columns
                 WritableColumnsBySheet.Clear();
                 WritableColumnsBySheet.Add(sheetName, new HashSet<int> { COL_ALT_TEXT, COL_ERRORS });
@@ -142,7 +340,6 @@ namespace ExcelWordImageUploader
                 // verify that all AltTextId values are sequential
 
                 DialogResult msgResult;
-                bool keepChecking = true;
 
                 // Verify Image Names are in sequence
                 for (int row = 3; row < 1000; row++)        // first row is header
@@ -181,15 +378,9 @@ namespace ExcelWordImageUploader
 
                     if (Stop)
                     {
-                        Application.DoEvents();
-                        excelPackage.Save();     // background cell colors
                         MessageBox.Show("Stopped");
-                        Application.DoEvents();
                         return;
                     }
-
-                    SafeSetCellValue(worksheet, row, COL_ERRORS, "");
-
                     // required. stop if not found
                     string sourceImageName = worksheet.Cells[row, COL_IMAGE_NAME].Text;
                     if (string.IsNullOrWhiteSpace(sourceImageName))
@@ -200,14 +391,14 @@ namespace ExcelWordImageUploader
                         await DeleteImagesByPrefixAsync(delImageNumber, string.Empty);
                         continue;
                     }
+                    else
+                    {
+                        SafeSetCellValue(worksheet, row, COL_ERRORS, "");
+                    }
                     //// required. stop if not found
                     //string altTextId = worksheet.Cells[row, COL_IMAGE_ID].Text;
                     //if (string.IsNullOrWhiteSpace(altTextId))
                     //    break;
-
-
-
-
 
                     //BeginInvoke((Action)(() => labelWordImage.Text = sourceImageName));
                     Application.DoEvents();
@@ -246,7 +437,7 @@ namespace ExcelWordImageUploader
 
                     string destFileName = string.Empty;
 
-                    string title = worksheet.Cells[row, COL_TITLE].Text;
+                    string title = worksheet.Cells[row, COL_TITLE].Text.Trim();
 
                     // upload to repo only images - not icons
                     string icon = worksheet.Cells[row, COL_ICON].Text;
@@ -398,8 +589,287 @@ namespace ExcelWordImageUploader
             }
             finally
             {
+                excelPackage.Save();     // background cell colors
                 if (wordAppAsZip != null) wordAppAsZip.Dispose();
                 if (excelPackage != null) excelPackage.Dispose();
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        // Add the following method to Form1.cs
+        private async void btnCreateTxtFile_Click(object sender, EventArgs e)
+        {
+            BeginInvoke((Action)(() => labelStatus.Text = btnCreateTxtFile.Text));
+
+            if (!ValidateInputSettings())
+                return;
+
+            InitializeGlobals();
+
+            wordApp = null;
+            wordDoc = null;
+
+            try
+            {
+                if (Stop)
+                {
+                    MessageBox.Show("Stopped");
+                    return;
+                }
+
+                int baseImageValue = (int)comboBoxWorksheet.SelectedValue;
+
+                // Load Excel map
+                Dictionary<string, string> altTextDict = await LoadAltTextFromExcelMapAsync(excelAppPath, sheetName, baseImageValue);
+
+                if (Stop)
+                    return;
+
+                wordApp = new Word.Application();
+                wordDoc = wordApp.Documents.Open(wordAppPath);
+
+                StringBuilder output = new StringBuilder();
+                StringBuilder pageBuffer = new StringBuilder();
+
+                int lastPage = -1;
+                int previousPage = 0;
+
+                foreach (Word.Paragraph para in wordDoc.Paragraphs)
+                {
+                    Word.Range rng = para.Range;
+                    int currentPage = rng.get_Information(Word.WdInformation.wdActiveEndPageNumber);
+
+                    if (currentPage != lastPage && lastPage != -1)
+                    {
+                        pageBuffer.AppendLine($"<p>You can read the User Guide page <a href=\"{{ClientRootAddress}}/assets/docs/{EncodeURLComponent(wordDocNameNoExt)}.pdf#page={lastPage}\"  target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>");
+                        output.Append(pageBuffer);
+                        pageBuffer.Clear();
+                    }
+
+                    // Replace alt text in Shapes on this paragraph
+                    foreach (Word.Shape shp in wordDoc.Shapes)
+                    {
+                        if (shp.Anchor.Start >= rng.Start && shp.Anchor.Start < rng.End)
+                        {
+                            string altText = shp.AlternativeText.Trim();
+                            Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
+                            if (match.Success && altTextDict.ContainsKey(match.Groups[1].Value))
+                            {
+                                shp.AlternativeText = altTextDict[match.Groups[1].Value];
+                            }
+                        }
+                    }
+
+                    string line = "";
+                    for (int i = 1; i <= rng.Words.Count; i++)
+                    {
+                        Word.Range word = rng.Words[i];
+
+                        if (word.InlineShapes.Count > 0)
+                        {
+                            foreach (Word.InlineShape ils in word.InlineShapes)
+                            {
+                                if (ils.Type == Word.WdInlineShapeType.wdInlineShapePicture)
+                                {
+                                    string altText = ils.AlternativeText.Trim();
+                                    //Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
+                                    //if (match.Success && altTextDict.ContainsKey(match.Groups[1].Value))
+                                    //{
+                                    //    ils.AlternativeText = altTextDict[match.Groups[1].Value];
+                                    //    altText = altTextDict[match.Groups[1].Value];
+                                    //}
+                                    //Match match_int = Regex.Match(altText, @"\[(\d{1,3})\]");
+
+                                    altText = altTextDict[altText];
+
+                                    if (Regex.IsMatch(altText, "src=\\\"[^\\\"]+\\\""))
+                                        line += altText + Environment.NewLine;
+                                    else if (altText.Contains("<span"))
+                                        line += altText + " ";
+                                }
+                            }
+                        }
+                        else
+                        {
+                            line += word.Text;
+                        }
+                    }
+
+                    pageBuffer.Append(line);
+                    lastPage = currentPage;
+
+                    if (previousPage != currentPage)
+                    {
+                        labelStatus.Text = $"Page {currentPage}";
+                        previousPage = currentPage;
+                    }
+                }
+
+                if (pageBuffer.Length > 0)
+                {
+                    pageBuffer.AppendLine($"<p>You can read the User Guide page <a href=\"{{ClientRootAddress}}/assets/docs/{EncodeURLComponent(wordDocNameNoExt)}.pdf#page={lastPage}\" target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>");
+                    output.Append(pageBuffer);
+                }
+
+                string txtFilePath = Path.Combine(wordDocDir, wordDocNameNoExt + ".txt");
+                File.WriteAllText(txtFilePath, SanitizeControlChars(output.ToString()).Replace("\"", "\"\""));
+
+                string endMessage = "Export complete!\nText file: " + txtFilePath;
+                labelStatus.Text = "Export complete";
+                MessageBox.Show(endMessage);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+            finally
+            {
+                if (wordDoc != null) { wordDoc.Close(false); Marshal.ReleaseComObject(wordDoc); }
+                if (wordApp != null) { wordApp.Quit(); Marshal.ReleaseComObject(wordApp); }
+                GC.Collect(); GC.WaitForPendingFinalizers();
+            }
+        }
+        //-----------------------------------------------------------------------------------------
+        private void buttonStop_Click(object sender, EventArgs e)
+        {
+            Stop = true;
+        }
+        //-----------------------------------------------------------------------------------------
+        private void btnBrowseExcel_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog dlg = new OpenFileDialog();
+            dlg.Title = "Select Excel File";
+            dlg.Filter = "Excel Files (*.xlsx)|*.xlsx";
+            dlg.InitialDirectory = Path.GetDirectoryName(txtExcelApp.Text);
+            if (dlg.ShowDialog() == DialogResult.OK)
+                txtExcelApp.Text = dlg.FileName;
+        }
+        //-----------------------------------------------------------------------------------------
+        private void btnBrowseWord_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog dlg = new OpenFileDialog();
+            dlg.Title = "Select Word File";
+            dlg.Filter = "Word Files (*.docm)|*.docm";
+            dlg.InitialDirectory = Path.GetDirectoryName(txtExcelApp.Text);
+            if (dlg.ShowDialog() == DialogResult.OK)
+                txtWordApp.Text = dlg.FileName;
+        }
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        private void InitializeGlobals()
+        {
+            // form data
+            wordAppPath = txtWordApp.Text.Trim();
+            excelAppPath = txtExcelApp.Text.Trim();
+            sheetName = comboBoxWorksheet.Text.Trim();
+
+            wordDocNameNoExt = Path.GetFileNameWithoutExtension(wordAppPath);
+            wordDocDir = Path.GetDirectoryName(wordAppPath);
+
+            wordAppAsZip = ZipFile.OpenRead(wordAppPath);
+            excelPackage = new ExcelPackage(new FileInfo(excelAppPath));
+            worksheet = excelPackage.Workbook.Worksheets[sheetName];
+
+            COL_IMAGE_NAME = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Image Name");
+            COL_ERRORS = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Errors");
+            COL_FILENAME = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "File Name");
+            COL_TITLE = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Title");
+            COL_ICON = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Icon");
+            COL_COLOR = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Color");
+            COL_TRANSFORM = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Transform");
+            COL_ALT_TEXT = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Alt Text");
+            COL_MAX_HEIGHT = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Height Max");
+        }
+        //-----------------------------------------------------------------------------------------
+        private bool ValidateInputSettings()
+        {
+            string wordAppPath = txtWordApp.Text.Trim();
+            string excelAppPath = txtExcelApp.Text.Trim();
+            string sheetName = comboBoxWorksheet.Text.Trim();
+
+            if (IsFileOpen(excelAppPath))
+            {
+                MessageBox.Show("The Excel file is currently open. Please save and close the file.");
+                return false;
+            }
+
+            if (SelectaUserGuide == wordAppPath)
+            {
+                MessageBox.Show(SelectaUserGuide);
+                return false;
+            }
+
+            if (IsFileOpen(wordAppPath))
+            {
+                MessageBox.Show("The User Guide file is currently open. Please save and close the file.");
+                return false;
+            }
+
+            if (!wordAppPath.Contains(sheetName))
+            {
+                MessageBox.Show("Word File and Worksheet Name mismatch");
+                return false;
+            }
+
+            return true;
+        }
+        //-----------------------------------------------------------------------------------------
+        private string GetAltText(string html_url, string title, string max_height, string altTextId)
+        {
+            string _maxheight = (string.IsNullOrEmpty(max_height)
+                              ? $@"style=""max-width: auto; width: auto; "" "
+                              : $@"style=""max-width: auto; width: auto; max-height: {max_height}px; "" ");
+            string alttext =
+        $@"<span style=""font-size: 18px;"" title=""{title}"">
+    <img src=""{html_url}?raw=true"" {_maxheight}/>
+</span> 
+";
+
+            // Replace two double quotes ("") with one double quote (")
+            return alttext.Replace("\"\"", "\"");
+        }
+        //-----------------------------------------------------------------------------------------
+        private string GetAltText(string icon, string title, string colour, string transform, string altTextId)
+        {
+            string _class = string.IsNullOrEmpty(transform) ? string.Empty : $@"class: ""{transform}"" ";
+            string _style = (string.IsNullOrEmpty(colour) ? "" : $"color: {colour}; ")
+                          + (string.IsNullOrEmpty(transform) ? "" : "display: inline-block;");
+            string alttext =
+        $@"<span style=""font-size: 20px; {_style.Trim()}"" {_class} title=""{title}"">
+  {icon}
+</span> 
+";
+
+            // Replace two double quotes ("") with one double quote (")
+            return alttext.Replace("\"\"", "\"");
+        }
+        //-----------------------------------------------------------------------------------------
+        private int ExtractImageNumber(string input)
+        {
+            var match = Regex.Match(input, @"^image(\d{1,3})\.png$", RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int result))
+            {
+                return result;
+            }
+            throw new ArgumentException("Input string is not in the expected format: imageDDD.png");
+        }
+        //-----------------------------------------------------------------------------------------
+        private static bool IsFileOpen(string filePath)
+        {
+            try
+            {
+                using (FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    // File is not locked
+                    return false;
+                }
+            }
+            catch (IOException)
+            {
+                // File is locked (likely open in Excel)
+                return true;
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -501,7 +971,7 @@ namespace ExcelWordImageUploader
             }
         }
         //-----------------------------------------------------------------------------------------
-        public static string ComputeGitHubBlobSha(byte[] contentBytes)
+        private static string ComputeGitHubBlobSha(byte[] contentBytes)
         {
             string header = $"blob {contentBytes.Length}\0";
             byte[] headerBytes = Encoding.UTF8.GetBytes(header);
@@ -518,161 +988,72 @@ namespace ExcelWordImageUploader
             }
         }
         //-----------------------------------------------------------------------------------------
-        //-----------------------------------------------------------------------------------------
-        //-----------------------------------------------------------------------------------------
-        //-----------------------------------------------------------------------------------------
-        //-----------------------------------------------------------------------------------------
-        // Add the following method to Form1.cs
-        private void btnCreateTxtFile_Click(object sender, EventArgs e)
+        private async Task<Dictionary<string, string>> LoadAltTextFromExcelMapAsync(string excelPath, string sheetName, int baseImageValue)
         {
-            if (!ValidateInputSettings())
-                return;
-
-            Word.Application wordApp = null;
-            Word.Document doc = null;
+            var dict = new Dictionary<string, string>();
+            int row;
 
             try
             {
-                string wordAppPath = txtWordApp.Text.Trim();
-                string sheetName = comboBoxWorksheet.Text.Trim();
-                string docNameNoExt = Path.GetFileNameWithoutExtension(wordAppPath);
-                string docDir = Path.GetDirectoryName(wordAppPath);
-
-                // Load Excel map
-                string excelPath = txtExcelApp.Text.Trim();
-                var dict = LoadAltTextFromExcel_Map(excelPath, sheetName);
-
-                wordApp = new Word.Application();
-                doc = wordApp.Documents.Open(wordAppPath);
-
-                StringBuilder output = new StringBuilder();
-                StringBuilder pageBuffer = new StringBuilder();
-
-                int lastPage = -1;
-                int previousPage = 0;
-
-                foreach (Word.Paragraph para in doc.Paragraphs)
+                using (var package = new ExcelPackage(new FileInfo(excelPath)))
                 {
-                    Word.Range rng = para.Range;
-                    int currentPage = rng.get_Information(Word.WdInformation.wdActiveEndPageNumber);
+                    ExcelWorksheet worksheet = package.Workbook.Worksheets[sheetName];
 
-                    if (currentPage != lastPage && lastPage != -1)
+                    for (row = 2; row <= worksheet.Dimension.End.Row; row++)
                     {
-                        pageBuffer.AppendLine($"<p>You can read the User Guide page <a href=\"{{ClientRootAddress}}/assets/docs/{EncodeURLComponent(docNameNoExt)}.pdf#page={lastPage}\" target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>");
-                        output.Append(pageBuffer);
-                        pageBuffer.Clear();
-                    }
-
-                    // Replace alt text in Shapes on this paragraph
-                    foreach (Word.Shape shp in doc.Shapes)
-                    {
-                        if (shp.Anchor.Start >= rng.Start && shp.Anchor.Start < rng.End)
+                        if (Stop)
                         {
-                            string altText = shp.AlternativeText.Trim();
-                            Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
-                            if (match.Success && dict.ContainsKey(match.Groups[1].Value))
-                            {
-                                shp.AlternativeText = dict[match.Groups[1].Value];
-                            }
+                            MessageBox.Show("Stopped");
+                            return dict;
                         }
-                    }
+                        string image_name_key = worksheet.Cells[row, COL_IMAGE_NAME].Text; // worksheet.Cells[row, colId].Text.Trim();
+                        int imageNumber = ExtractImageNumber(image_name_key);
+                        string destImageNumber = (baseImageValue + imageNumber).ToString();
+                        string altTextId = imageNumber.ToString();
+                        string dict_key = "[" + destImageNumber + "]";
 
-                    string line = "";
-                    for (int i = 1; i <= rng.Words.Count; i++)
-                    {
-                        Word.Range word = rng.Words[i];
+                        BeginInvoke((Action)(() => labelStatus.Text = dict_key));
 
-                        if (word.InlineShapes.Count > 0)
+                        string title = worksheet.Cells[row, COL_TITLE].Text.Trim();
+
+                        // upload to repo only images - not icons
+                        string icon = worksheet.Cells[row, COL_ICON].Text;
+
+                        if (false == string.IsNullOrEmpty(icon))
                         {
-                            foreach (Word.InlineShape ils in word.InlineShapes)
-                            {
-                                if (ils.Type == Word.WdInlineShapeType.wdInlineShapePicture)
-                                {
-                                    string altText = ils.AlternativeText.Trim();
-                                    Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
-                                    if (match.Success && dict.ContainsKey(match.Groups[1].Value))
-                                    {
-                                        ils.AlternativeText = dict[match.Groups[1].Value];
-                                        altText = dict[match.Groups[1].Value];
-                                    }
-                                    altText = Regex.Replace(altText, "\\[(\\d{4})\\]", "");
-                                    if (Regex.IsMatch(altText, "src=\\\"[^\\\"]+\\\""))
-                                        line += altText + Environment.NewLine;
-                                    else if (altText.Contains("<span"))
-                                        line += altText + " ";
-                                }
-                            }
+                            // this is an icon - no image in repo required.
+                            string colour = worksheet.Cells[row, COL_COLOR].Text;
+                            string transform = worksheet.Cells[row, COL_TRANSFORM].Text;
+                            // record the Alt Text to be written (by another process) to the User Guide
+                            string altTextValue = GetAltText(icon, title, colour, transform, altTextId);
+                            dict[dict_key] = altTextValue;
                         }
                         else
                         {
-                            line += word.Text;
+                            // get the file name from Excel
+                            string excelFileName = worksheet.Cells[row, COL_FILENAME].Text;
+                            // next row if no File Name
+                            if (string.IsNullOrWhiteSpace(excelFileName))
+                                continue;
+
+                            // ensures no duplicate file names across User Guides
+                            string destFileName = destImageNumber + "-" + excelFileName;
+                            string max_height = worksheet.Cells[row, COL_MAX_HEIGHT].Text;
+                            string json = await GetFileRepoAsync(destFileName).ConfigureAwait(false);
+
+                            GitHubFileInfo fileInfo = JsonConvert.DeserializeObject<GitHubFileInfo>(json);
+                            // lookup the existing image
+                            string html_url = (string)fileInfo.html_url;
+
+                            string altTextValue = GetAltText(html_url, title, max_height, destImageNumber);
+                            dict[dict_key] = altTextValue;
                         }
                     }
-
-                    pageBuffer.Append(line);
-                    lastPage = currentPage;
-
-                    if (previousPage != currentPage)
-                    {
-                        Console.Write(previousPage == 0 ? $"Page {currentPage}" : $",{currentPage}");
-                        previousPage = currentPage;
-                    }
                 }
-
-                if (pageBuffer.Length > 0)
-                {
-                    pageBuffer.AppendLine($"<p>You can read the User Guide page <a href=\"{{ClientRootAddress}}/assets/docs/{EncodeURLComponent(docNameNoExt)}.pdf#page={lastPage}\" target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>");
-                    output.Append(pageBuffer);
-                }
-
-                string txtFilePath = Path.Combine(docDir, docNameNoExt + ".txt");
-                File.WriteAllText(txtFilePath, SanitizeControlChars(output.ToString()).Replace("\"", "\"\""));
-
-                MessageBox.Show("Export complete!\nText file: " + txtFilePath);
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Error: " + ex.Message);
-            }
-            finally
-            {
-                if (doc != null) { doc.Close(false); Marshal.ReleaseComObject(doc); }
-                if (wordApp != null) { wordApp.Quit(); Marshal.ReleaseComObject(wordApp); }
-                GC.Collect(); GC.WaitForPendingFinalizers();
-            }
-        }
-        //-----------------------------------------------------------------------------------------
-        private Dictionary<string, string> LoadAltTextFromExcel_Map(string excelPath, string sheetName)
-        {
-            var dict = new Dictionary<string, string>();
-
-            using (var package = new ExcelPackage(new FileInfo(excelPath)))
-            {
-                ExcelWorksheet worksheet = package.Workbook.Worksheets[sheetName];
-
-                for (int row = 2; row <= worksheet.Dimension.End.Row; row++)
-                {
-                    string key = worksheet.Cells[row, COL_IMAGE_NAME].Text; // worksheet.Cells[row, colId].Text.Trim();
-
-                    string title = worksheet.Cells[row, COL_TITLE].Text;
-
-                    // upload to repo only images - not icons
-                    string icon = worksheet.Cells[row, COL_ICON].Text;
-
-                    if (false == string.IsNullOrEmpty(icon))
-                    {
-                        // this is an icon - no image in repo required.
-                        string colour = worksheet.Cells[row, COL_COLOR].Text;
-                        string transform = worksheet.Cells[row, COL_TRANSFORM].Text;
-                        string altTextId = ExtractImageNumber(worksheet.Cells[row, COL_IMAGE_NAME].Text).ToString();
-                        // record the Alt Text to be written (by another process) to the User Guide
-                        string altTextValue = GetAltText(icon, title, colour, transform, altTextId);
-                        dict[key] = altTextValue;
-                   //     SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
-                    }
-                    //string val = worksheet.Cells[row, colText].Text.Trim();
-                    //if (!string.IsNullOrEmpty(key)) dict[key] = val;
-                }
             }
             return dict;
         }
@@ -702,7 +1083,6 @@ namespace ExcelWordImageUploader
             }
             return sb.ToString();
         }
-        //-----------------------------------------------------------------------------------------
         //-----------------------------------------------------------------------------------------
         private async Task<byte[]> DownloadFileFromGitHubAsync(string owner, string repo, string path)
         {
@@ -826,7 +1206,7 @@ namespace ExcelWordImageUploader
             }
         }
         //-----------------------------------------------------------------------------------------
-        public static int GetColumnNumberByHeaderTitle(ExcelWorkbook workbook, string worksheetName, string columnTitle)
+        private static int GetColumnNumberByHeaderTitle(ExcelWorkbook workbook, string worksheetName, string columnTitle)
         {
             var worksheet = workbook.Worksheets[worksheetName];
             if (worksheet == null)
@@ -847,7 +1227,7 @@ namespace ExcelWordImageUploader
             throw new ArgumentException($"Column with title '{columnTitle}' not found in worksheet '{worksheetName}'.");
         }
         //-----------------------------------------------------------------------------------------
-        public static void SafeSetCellValue(ExcelWorksheet worksheet, int row, int column, object value)
+        private static void SafeSetCellValue(ExcelWorksheet worksheet, int row, int column, object value)
         {
             string sheetName = worksheet.Name;
 
@@ -858,319 +1238,6 @@ namespace ExcelWordImageUploader
                 throw new UnauthorizedAccessException($"Write to column {column} is not permitted in worksheet '{sheetName}'.");
 
             worksheet.Cells[row, column].Value = value;
-        }
-        //-----------------------------------------------------------------------------------------
-        private void btnBrowseExcel_Click(object sender, EventArgs e)
-        {
-            OpenFileDialog dlg = new OpenFileDialog();
-            dlg.Title = "Select Excel File";
-            dlg.Filter = "Excel Files (*.xlsx)|*.xlsx";
-            dlg.InitialDirectory = Path.GetDirectoryName(txtExcelApp.Text);
-            if (dlg.ShowDialog() == DialogResult.OK)
-                txtExcelApp.Text = dlg.FileName;
-        }
-        //-----------------------------------------------------------------------------------------
-        private void btnBrowseWord_Click(object sender, EventArgs e)
-        {
-            OpenFileDialog dlg = new OpenFileDialog();
-            dlg.Title = "Select Word File";
-            dlg.Filter = "Word Files (*.docm)|*.docm";
-            dlg.InitialDirectory = Path.GetDirectoryName(txtExcelApp.Text);
-            if (dlg.ShowDialog() == DialogResult.OK)
-                txtWordApp.Text = dlg.FileName;
-        }
-        //-----------------------------------------------------------------------------------------
-        private void buttonStop_Click(object sender, EventArgs e)
-        {
-            Stop = true;
-        }
-        //-----------------------------------------------------------------------------------------
-        //<img src="https://github.com/Gradescan/images/blob/main/question-edit-answers-ordered-222.png?raw=true" style="max-height: 200px; width: auto;" alt="Question Edit">
-
-        private string GetAltText(string html_url, string title, string max_height, string altTextId)
-        {
-            string _maxheight = (string.IsNullOrEmpty(max_height)
-                              ? $@"style=""max-width: auto; width: auto; "" "
-                              : $@"style=""max-width: auto; width: auto; max-height: {max_height}px; "" ");
-            string alttext =
-        $@"<span style=""font-size: 18px;"" title=""{title} "">
-    <img src=""{html_url}?raw=true"" {_maxheight}/>
-</span> 
-[{altTextId}]";
-
-            // Replace two double quotes ("") with one double quote (")
-            return alttext.Replace("\"\"", "\"");
-        }
-        //-----------------------------------------------------------------------------------------
-        private string GetAltText(string icon, string title, string colour, string transform, string altTextId)
-        {
-            string _class = string.IsNullOrEmpty(transform) ? string.Empty : $@"class: ""{transform}"" ";
-            string _style = (string.IsNullOrEmpty(colour) ? "" : $"color: {colour}; ")
-                          + (string.IsNullOrEmpty(transform) ? "" : "display: inline-block;");
-            string alttext =
-        $@"<span style=""font-size: 20px; {_style.Trim()}"" {_class} title=""{title} "">
-  {icon}
-</span> 
-[{altTextId}]";
-
-            // Replace two double quotes ("") with one double quote (")
-            return alttext.Replace("\"\"", "\"");
-        }
-        //-----------------------------------------------------------------------------------------
-        private void btnAssign_Click(object sender, EventArgs e)
-        {
-            if (!ValidateInputSettings())
-                return;
-
-            // Get the starting number from comboBoxWorksheet
-            int startingValue = (int)comboBoxWorksheet.SelectedValue + 1;
-            int counter = startingValue;
-            int largestNumber = counter;
-
-            Word.Application wordApp = null;
-            Word.Document doc = null;
-
-            try
-            {
-                string wordAppPath = txtWordApp.Text.Trim();
-                string sheetName = comboBoxWorksheet.Text.Trim();
-
-                wordApp = new Word.Application();
-                doc = wordApp.Documents.Open(wordAppPath);
-
-                // match legacy 3-digit numbers or current standar 4-digit numbers.
-                Regex pattern = new Regex(@"\[(\d{3,4})\]");
-
-
-                // Process InlineShapes
-                foreach (Word.InlineShape shape in doc.InlineShapes)
-                {
-                    string altText = shape.AlternativeText ?? "";
-
-                    Match match = pattern.Match(altText);
-                    if (match.Success)
-                    {
-                        // Extract existing number and update largestNumber if greater
-                        if (int.TryParse(match.Groups[1].Value, out int foundNumber))
-                        {
-                            if (foundNumber >= largestNumber)
-                                largestNumber = foundNumber + 1;
-                        }
-                    }
-                    else
-                    {
-                        // Assign new number
-                        shape.AlternativeText = altText + "[" + counter.ToString("D4") + "]";
-                        counter++;
-                        largestNumber = counter;
-                    }
-                    // show the status
-                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
-                    Application.DoEvents();
-                }
-
-                foreach (Word.Shape shape in doc.Shapes)
-                {
-                    string altText = shape.AlternativeText;
-                    if (!pattern.IsMatch(altText))
-                    {
-                        string newText = altText + "\n[" + counter.ToString("D4") + "]";
-                        shape.AlternativeText = newText;
-                        counter++;
-                    }
-                    // show the status
-                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
-                    Application.DoEvents();
-                }
-                doc.Save();
-                MessageBox.Show("AltText update completed. Last value used or found = " + (largestNumber - 1).ToString());
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message);
-            }
-            finally
-            {
-                // Ensure file is unlocked by closing document and quitting Word
-                if (doc != null)
-                {
-                    doc.Close(false); // false = don't prompt to save again
-                    Marshal.ReleaseComObject(doc);
-                    doc = null;
-                }
-
-                if (wordApp != null)
-                {
-                    wordApp.Quit();
-                    Marshal.ReleaseComObject(wordApp);
-                    wordApp = null;
-                }
-
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
-        }
-        //-----------------------------------------------------------------------------------------
-        private void btnClearAltText_Click(object sender, EventArgs e)
-        {
-            if (!ValidateInputSettings())
-                return;
-
-            Word.Application wordApp = null;
-            Word.Document doc = null;
-
-            try
-            {
-                string wordAppPath = txtWordApp.Text.Trim();
-                wordApp = new Word.Application();
-                doc = wordApp.Documents.Open(wordAppPath);
-
-                int counter = 0;
-                int convertedCount = 0;
-
-                // Clear InlineShapes Alt Text
-                foreach (Word.InlineShape shape in doc.InlineShapes)
-                {
-                    if (!string.IsNullOrEmpty(shape.AlternativeText))
-                    {
-                        shape.AlternativeText = string.Empty;
-                        counter++;
-                    }
-                    // show the status
-                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
-                    Application.DoEvents();
-                }
-
-                // Clear floating Shapes Alt Text
-                foreach (Word.Shape shape in doc.Shapes)
-                {
-                    // Check if it's not already inline (i.e., floating)
-                    if (shape.WrapFormat.Type != Word.WdWrapType.wdWrapInline)
-                    {
-                        // Convert to InlineShape
-                        shape.ConvertToInlineShape();
-                        convertedCount++;
-                    }
-                    if (!string.IsNullOrEmpty(shape.AlternativeText))
-                    {
-                        shape.AlternativeText = string.Empty;
-                        counter++;
-                    }
-                    // show the status
-                    BeginInvoke((Action)(() => labelStatus.Text = counter.ToString()));
-                    Application.DoEvents();
-                }
-
-                doc.Save();
-                MessageBox.Show($"Cleared AltText from {counter} shapes.  Converted {convertedCount} shapes.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message);
-            }
-            finally
-            {
-                // Ensure file is unlocked by closing document and quitting Word
-                if (doc != null)
-                {
-                    doc.Close(false); // false = don't prompt to save again
-                    Marshal.ReleaseComObject(doc);
-                    doc = null;
-                }
-
-                if (wordApp != null)
-                {
-                    wordApp.Quit();
-                    Marshal.ReleaseComObject(wordApp);
-                    wordApp = null;
-                }
-
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
-        }
-        //-----------------------------------------------------------------------------------------
-        private void btnVerify_Click(object sender, EventArgs e)
-        {
-            if (!ValidateInputSettings())
-                return;
-
-        }
-        //-----------------------------------------------------------------------------------------
-        private int ExtractImageNumber(string input)
-        {
-            var match = Regex.Match(input, @"^image(\d{1,3})\.png$", RegexOptions.IgnoreCase);
-            if (match.Success && int.TryParse(match.Groups[1].Value, out int result))
-            {
-                return result;
-            }
-            throw new ArgumentException("Input string is not in the expected format: imageDDD.png");
-        }
-        //-----------------------------------------------------------------------------------------
-        private bool ValidateInputSettings()
-        {
-            string wordAppPath = txtWordApp.Text.Trim();
-            string excelAppPath = txtExcelApp.Text.Trim();
-            string sheetName = comboBoxWorksheet.Text.Trim();
-
-            if (IsFileOpen(excelAppPath))
-            {
-                MessageBox.Show("The Excel file is currently open. Please save and close the file.");
-                return false;
-            }
-
-            if (SelectaUserGuide == wordAppPath)
-            {
-                MessageBox.Show(SelectaUserGuide);
-                return false;
-            }
-
-            if (IsFileOpen(wordAppPath))
-            {
-                MessageBox.Show("The User Guide file is currently open. Please save and close the file.");
-                return false;
-            }
-
-            if (!wordAppPath.Contains(sheetName))
-            {
-                MessageBox.Show("Word File and Worksheet Name mismatch");
-                return false;
-            }
-
-            return true;
-        }
-        //-----------------------------------------------------------------------------------------
-        public static bool IsFileOpen(string filePath)
-        {
-            try
-            {
-                using (FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-                {
-                    // File is not locked
-                    return false;
-                }
-            }
-            catch (IOException)
-            {
-                // File is locked (likely open in Excel)
-                return true;
-            }
-        }
-        //-----------------------------------------------------------------------------------------
-        public class WorksheetItem
-        {
-            public string  worksheetItemName { get; set; }
-            public int     baseImageFileNumber { get; set; }
-
-            public WorksheetItem(string name, int imgnum)
-            {
-                worksheetItemName = name;
-                baseImageFileNumber = imgnum;
-            }
-            public override string ToString()
-            {
-                return worksheetItemName;
-            }
         }
     }
     //-----------------------------------------------------------------------------------------
