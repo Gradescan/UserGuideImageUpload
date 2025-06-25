@@ -30,8 +30,8 @@ namespace ExcelWordImageUploader
         private int COL_COLOR;
         private int COL_TRANSFORM;
         private int COL_ICON;
-        private int COL_ALT_TEXT;
         private int COL_MAX_HEIGHT;
+        private int COL_IMAGE_URL;
 
         // Word
         private string wordAppPath;
@@ -108,7 +108,7 @@ namespace ExcelWordImageUploader
             GitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
             if (string.IsNullOrWhiteSpace(GitHubToken))
             {
-                MessageBox.Show("Environment variable GITHUB_TOKEN is not set.");
+                MessageBox.Show(this, "Environment variable GITHUB_TOKEN is not set.");
                 Environment.Exit(1);
             }
 
@@ -142,14 +142,14 @@ namespace ExcelWordImageUploader
             wordApp = null;
             wordDoc = null;
 
+            int counter = 0;
+            int convertedCount = 0;
+
             try
             {
                 string wordAppPath = txtWordApp.Text.Trim();
                 wordApp = new Word.Application();
                 wordDoc = wordApp.Documents.Open(wordAppPath);
-
-                int counter = 0;
-                int convertedCount = 0;
 
                 // Clear InlineShapes Alt Text
                 foreach (Word.InlineShape shape in wordDoc.InlineShapes)
@@ -185,11 +185,10 @@ namespace ExcelWordImageUploader
                 }
 
                 wordDoc.Save();
-                MessageBox.Show($"Cleared AltText from {counter} shapes.  Converted {convertedCount} shapes.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(this, "Error: " + ex.Message);
             }
             finally
             {
@@ -210,6 +209,8 @@ namespace ExcelWordImageUploader
 
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
+
+                MessageBox.Show(this, $"Cleared AltText from {counter} shapes.  Converted {convertedCount} shapes.");
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -281,11 +282,10 @@ namespace ExcelWordImageUploader
                     Application.DoEvents();
                 }
                 wordDoc.Save();
-                MessageBox.Show("AltText update completed. Last value used or found = " + (largestNumber - 1).ToString());
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(this, "Error: " + ex.Message);
             }
             finally
             {
@@ -306,16 +306,9 @@ namespace ExcelWordImageUploader
 
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
+
+                MessageBox.Show(this, "AltText update completed. Last value used or found = " + (largestNumber - 1).ToString());
             }
-        }
-        //-----------------------------------------------------------------------------------------
-        private void btnVerifyAltText_Click(object sender, EventArgs e)
-        {
-            BeginInvoke((Action)(() => labelStatus.Text = btnVerifyAltText.Text));
-
-            if (!ValidateInputSettings())
-                return;
-
         }
         //-----------------------------------------------------------------------------------------
         private async void btnUploadImages_Click(object sender, EventArgs e)
@@ -335,7 +328,7 @@ namespace ExcelWordImageUploader
             {
                 // safety check - identify writeable columns
                 WritableColumnsBySheet.Clear();
-                WritableColumnsBySheet.Add(sheetName, new HashSet<int> { COL_ALT_TEXT, COL_ERRORS });
+                WritableColumnsBySheet.Add(sheetName, new HashSet<int> { COL_IMAGE_URL, COL_ERRORS });
 
                 // verify that all AltTextId values are sequential
 
@@ -353,14 +346,14 @@ namespace ExcelWordImageUploader
                         int row1 = ExtractImageNumber(worksheet.Cells[row, COL_IMAGE_NAME].Text);
                         if (row0 + 1 != row1)
                         {
-                            msgResult = MessageBox.Show("Out of sequence at row " + row.ToString(), "Continue?", MessageBoxButtons.OKCancel);
+                            msgResult = MessageBox.Show(this, "Out of sequence at row " + row.ToString(), "Continue?", MessageBoxButtons.OKCancel);
                             if (msgResult == DialogResult.Cancel)
                                 return;
                         }
                     }
                     else
                     {
-                        msgResult = MessageBox.Show("Image names are sequential. Last Image Name = " + worksheet.Cells[row-1, COL_IMAGE_NAME].Text, "Continue?", MessageBoxButtons.OKCancel);
+                        msgResult = MessageBox.Show(this, "Image names are sequential. Last Image Name = " + worksheet.Cells[row-1, COL_IMAGE_NAME].Text, "Continue?", MessageBoxButtons.OKCancel);
                         if (msgResult == DialogResult.Cancel)
                             return;
                         else
@@ -378,7 +371,7 @@ namespace ExcelWordImageUploader
 
                     if (Stop)
                     {
-                        MessageBox.Show("Stopped");
+                        MessageBox.Show(this, "Stopped");
                         return;
                     }
                     // required. stop if not found
@@ -395,13 +388,6 @@ namespace ExcelWordImageUploader
                     {
                         SafeSetCellValue(worksheet, row, COL_ERRORS, "");
                     }
-                    //// required. stop if not found
-                    //string altTextId = worksheet.Cells[row, COL_IMAGE_ID].Text;
-                    //if (string.IsNullOrWhiteSpace(altTextId))
-                    //    break;
-
-                    //BeginInvoke((Action)(() => labelWordImage.Text = sourceImageName));
-                    Application.DoEvents();
 
                     string internalPath = "word/media/" + sourceImageName;
                     ZipArchiveEntry wordMediaImage = wordAppAsZip.GetEntry(internalPath);
@@ -444,14 +430,6 @@ namespace ExcelWordImageUploader
 
                     if (false == string.IsNullOrEmpty(icon))
                     {
-                        // this is an icon - no image in repo required.
-                        string colour = worksheet.Cells[row, COL_COLOR].Text;
-                        string transform = worksheet.Cells[row, COL_TRANSFORM].Text;
-
-                        // record the Alt Text to be written (by another process) to the User Guide
-                        string altTextValue = GetAltText(icon, title, colour, transform, destImageNumber);
-                        SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
-
                         // ensure there are no varants with this image number that may have formerly been images in git repo
                         await DeleteImagesByPrefixAsync(destImageNumber, string.Empty);
                         continue;
@@ -480,7 +458,6 @@ namespace ExcelWordImageUploader
                             listBoxCollisions.Items.Add(destFileName);
                             picBoxPanel.BackColor = Color.Red;
                             Application.DoEvents();
-                            //MessageBox.Show("MisMatch: " + destFileName);
                         }));
 
                         // ensure there are no varants with this image number
@@ -491,7 +468,7 @@ namespace ExcelWordImageUploader
                         if (!push_result)
                         {
                             Console.WriteLine("Upload failed: " + destFileName);
-                            MessageBox.Show("Upload failed: " + destFileName);
+                            MessageBox.Show(this, "Upload failed: " + destFileName);
                         }
 
                         json = await GetFileRepoAsync(destFileName).ConfigureAwait(false);
@@ -501,11 +478,8 @@ namespace ExcelWordImageUploader
                         // lookup the existing image
                         string html_url = (string)fileInfo.html_url;
 
-                        string max_height = worksheet.Cells[row, COL_MAX_HEIGHT].Text;
-
-                        // record the Alt Text to be written (by another process) to the User Guide
-                        string altTextValue = GetAltText(html_url, title, max_height, destImageNumber);
-                        SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
+                        // record file number in Alt Text field
+                        SafeSetCellValue(worksheet, row, COL_IMAGE_URL, html_url);
 
                         // show the images in the repo
                         BeginInvoke((Action)(() =>
@@ -526,11 +500,8 @@ namespace ExcelWordImageUploader
                         // lookup the existing image
                         string html_url = (string)fileInfo.html_url;
 
-                        string max_height = worksheet.Cells[row, COL_MAX_HEIGHT].Text;
-
-                        // record the Alt Text to be written (by another process) to the User Guide
-                        string altTextValue = GetAltText(html_url, title, max_height, destImageNumber);
-                        SafeSetCellValue(worksheet, row, COL_ALT_TEXT, altTextValue);
+                        // record file number in Alt Text field
+                        SafeSetCellValue(worksheet, row, COL_IMAGE_URL, html_url);
 
                         string base64 = (string)fileInfo.content;
                         base64 = base64.Replace("\n", "").Replace("\r", ""); // GitHub adds newlines to base64 output
@@ -564,34 +535,36 @@ namespace ExcelWordImageUploader
                                 listBoxCollisions.Items.Add(destFileName);
                                 picBoxPanel.BackColor = Color.Red;
                                 Application.DoEvents();
-                                //MessageBox.Show("MisMatch: " + destFileName);
                             }));
                             // push the image to the repo
                             bool push_result = PutFileRepoAsync(destFileName, fileInfo.sha, wordDocImageBytes).GetAwaiter().GetResult();
                             if (!push_result)
                             {
                                 Console.WriteLine("Upload failed: " + destFileName);
-                                MessageBox.Show("Upload failed: " + destFileName);
+                                MessageBox.Show(this, "Upload failed: " + destFileName);
                             }
                         }
                     }
                     Application.DoEvents();
                 }
                 excelPackage.Save();     // background cell colors
-
-                Console.WriteLine("Upload process completed.");
-                MessageBox.Show("Upload process completed.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error: " + ex.Message);
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(this, "Error: " + ex.Message);
             }
             finally
             {
                 excelPackage.Save();     // background cell colors
                 if (wordAppAsZip != null) wordAppAsZip.Dispose();
                 if (excelPackage != null) excelPackage.Dispose();
+
+                Console.WriteLine("Upload process completed.");
+                this.Invoke((MethodInvoker)(() =>
+                {
+                    MessageBox.Show(this, "Upload process completed.");
+                }));
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -607,12 +580,13 @@ namespace ExcelWordImageUploader
 
             wordApp = null;
             wordDoc = null;
+            string endMessage = string.Empty;
 
             try
             {
                 if (Stop)
                 {
-                    MessageBox.Show("Stopped");
+                    MessageBox.Show(this, "Stopped");
                     return;
                 }
 
@@ -620,9 +594,6 @@ namespace ExcelWordImageUploader
 
                 // Load Excel map
                 Dictionary<string, string> altTextDict = await LoadAltTextFromExcelMapAsync(excelAppPath, sheetName, baseImageValue);
-
-                if (Stop)
-                    return;
 
                 wordApp = new Word.Application();
                 wordDoc = wordApp.Documents.Open(wordAppPath);
@@ -635,6 +606,9 @@ namespace ExcelWordImageUploader
 
                 foreach (Word.Paragraph para in wordDoc.Paragraphs)
                 {
+                    if (Stop)
+                        return;
+
                     Word.Range rng = para.Range;
                     int currentPage = rng.get_Information(Word.WdInformation.wdActiveEndPageNumber);
 
@@ -643,20 +617,6 @@ namespace ExcelWordImageUploader
                         pageBuffer.AppendLine($"<p>You can read the User Guide page <a href=\"{{ClientRootAddress}}/assets/docs/{EncodeURLComponent(wordDocNameNoExt)}.pdf#page={lastPage}\"  target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>");
                         output.Append(pageBuffer);
                         pageBuffer.Clear();
-                    }
-
-                    // Replace alt text in Shapes on this paragraph
-                    foreach (Word.Shape shp in wordDoc.Shapes)
-                    {
-                        if (shp.Anchor.Start >= rng.Start && shp.Anchor.Start < rng.End)
-                        {
-                            string altText = shp.AlternativeText.Trim();
-                            Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
-                            if (match.Success && altTextDict.ContainsKey(match.Groups[1].Value))
-                            {
-                                shp.AlternativeText = altTextDict[match.Groups[1].Value];
-                            }
-                        }
                     }
 
                     string line = "";
@@ -670,17 +630,21 @@ namespace ExcelWordImageUploader
                             {
                                 if (ils.Type == Word.WdInlineShapeType.wdInlineShapePicture)
                                 {
-                                    string altText = ils.AlternativeText.Trim();
-                                    //Match match = Regex.Match(altText, "\\[(\\d{4})\\]");
-                                    //if (match.Success && altTextDict.ContainsKey(match.Groups[1].Value))
-                                    //{
-                                    //    ils.AlternativeText = altTextDict[match.Groups[1].Value];
-                                    //    altText = altTextDict[match.Groups[1].Value];
-                                    //}
-                                    //Match match_int = Regex.Match(altText, @"\[(\d{1,3})\]");
-
-                                    altText = altTextDict[altText];
-
+                                    string altText = string.Empty;
+                                    string ilsAltText = ils.AlternativeText.Trim();
+                                    if (altTextDict.ContainsKey(ilsAltText))
+                                    {
+                                        altText = altTextDict[ilsAltText];
+                                    }
+                                    else
+                                    {
+                                        this.Invoke((MethodInvoker)(() =>
+                                        {
+                                            MessageBox.Show(this, "altTextDict missing key " + ilsAltText);
+                                        }));
+                                        endMessage = "altTextDict missing key " + ilsAltText;
+                                        return;
+                                    }
                                     if (Regex.IsMatch(altText, "src=\\\"[^\\\"]+\\\""))
                                         line += altText + Environment.NewLine;
                                     else if (altText.Contains("<span"))
@@ -713,19 +677,23 @@ namespace ExcelWordImageUploader
                 string txtFilePath = Path.Combine(wordDocDir, wordDocNameNoExt + ".txt");
                 File.WriteAllText(txtFilePath, SanitizeControlChars(output.ToString()).Replace("\"", "\"\""));
 
-                string endMessage = "Export complete!\nText file: " + txtFilePath;
-                labelStatus.Text = "Export complete";
-                MessageBox.Show(endMessage);
+                endMessage = "Export complete!\nText file: " + txtFilePath;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(this, "Error: " + ex.Message);
             }
             finally
             {
                 if (wordDoc != null) { wordDoc.Close(false); Marshal.ReleaseComObject(wordDoc); }
                 if (wordApp != null) { wordApp.Quit(); Marshal.ReleaseComObject(wordApp); }
                 GC.Collect(); GC.WaitForPendingFinalizers();
+
+                labelStatus.Text = "Export complete";
+                this.Invoke((MethodInvoker)(() =>
+                {
+                    MessageBox.Show(this, endMessage);
+                }));
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -779,7 +747,7 @@ namespace ExcelWordImageUploader
             COL_ICON = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Icon");
             COL_COLOR = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Color");
             COL_TRANSFORM = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Transform");
-            COL_ALT_TEXT = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Alt Text");
+            COL_IMAGE_URL = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Image URL");
             COL_MAX_HEIGHT = GetColumnNumberByHeaderTitle(excelPackage.Workbook, sheetName, "Height Max");
         }
         //-----------------------------------------------------------------------------------------
@@ -791,25 +759,25 @@ namespace ExcelWordImageUploader
 
             if (IsFileOpen(excelAppPath))
             {
-                MessageBox.Show("The Excel file is currently open. Please save and close the file.");
+                MessageBox.Show(this, "The Excel file is currently open. Please save and close the file.");
                 return false;
             }
 
             if (SelectaUserGuide == wordAppPath)
             {
-                MessageBox.Show(SelectaUserGuide);
+                MessageBox.Show(this, SelectaUserGuide);
                 return false;
             }
 
             if (IsFileOpen(wordAppPath))
             {
-                MessageBox.Show("The User Guide file is currently open. Please save and close the file.");
+                MessageBox.Show(this, "The User Guide file is currently open. Please save and close the file.");
                 return false;
             }
 
             if (!wordAppPath.Contains(sheetName))
             {
-                MessageBox.Show("Word File and Worksheet Name mismatch");
+                MessageBox.Show(this, "Word File and Worksheet Name mismatch");
                 return false;
             }
 
@@ -818,11 +786,12 @@ namespace ExcelWordImageUploader
         //-----------------------------------------------------------------------------------------
         private string GetAltText(string html_url, string title, string max_height, string altTextId)
         {
+            string _title = string.IsNullOrEmpty(title) ? string.Empty : $@"title=""{title}"" ";
             string _maxheight = (string.IsNullOrEmpty(max_height)
                               ? $@"style=""max-width: auto; width: auto; "" "
                               : $@"style=""max-width: auto; width: auto; max-height: {max_height}px; "" ");
             string alttext =
-        $@"<span style=""font-size: 18px;"" title=""{title}"">
+        $@"<span style=""font-size: 18px;"" {_title}>
     <img src=""{html_url}?raw=true"" {_maxheight}/>
 </span> 
 ";
@@ -833,11 +802,12 @@ namespace ExcelWordImageUploader
         //-----------------------------------------------------------------------------------------
         private string GetAltText(string icon, string title, string colour, string transform, string altTextId)
         {
+            string _title = string.IsNullOrEmpty(title) ? string.Empty : $@"title=""{title}"" ";
             string _class = string.IsNullOrEmpty(transform) ? string.Empty : $@"class: ""{transform}"" ";
             string _style = (string.IsNullOrEmpty(colour) ? "" : $"color: {colour}; ")
                           + (string.IsNullOrEmpty(transform) ? "" : "display: inline-block;");
             string alttext =
-        $@"<span style=""font-size: 20px; {_style.Trim()}"" {_class} title=""{title}"">
+        $@"<span style=""font-size: 20px; {_style.Trim()}"" {_class} {_title}>
   {icon}
 </span> 
 ";
@@ -1003,7 +973,7 @@ namespace ExcelWordImageUploader
                     {
                         if (Stop)
                         {
-                            MessageBox.Show("Stopped");
+                            MessageBox.Show(this, "Stopped");
                             return dict;
                         }
                         string image_name_key = worksheet.Cells[row, COL_IMAGE_NAME].Text; // worksheet.Cells[row, colId].Text.Trim();
@@ -1039,11 +1009,8 @@ namespace ExcelWordImageUploader
                             // ensures no duplicate file names across User Guides
                             string destFileName = destImageNumber + "-" + excelFileName;
                             string max_height = worksheet.Cells[row, COL_MAX_HEIGHT].Text;
-                            string json = await GetFileRepoAsync(destFileName).ConfigureAwait(false);
-
-                            GitHubFileInfo fileInfo = JsonConvert.DeserializeObject<GitHubFileInfo>(json);
-                            // lookup the existing image
-                            string html_url = (string)fileInfo.html_url;
+                            // lookup the image URL in the spreadsheet
+                            string html_url = worksheet.Cells[row, COL_IMAGE_URL].Text;
 
                             string altTextValue = GetAltText(html_url, title, max_height, destImageNumber);
                             dict[dict_key] = altTextValue;
@@ -1053,7 +1020,7 @@ namespace ExcelWordImageUploader
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(this, "Error: " + ex.Message);
             }
             return dict;
         }
