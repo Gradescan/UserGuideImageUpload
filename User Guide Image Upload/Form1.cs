@@ -147,6 +147,16 @@ namespace ExcelWordImageUploader
 
             try
             {
+                // clear the images and labels
+                BeginInvoke((Action)(() =>
+                {
+                    labelFileName.Text = string.Empty;
+                    labelWordImage.Text = string.Empty;
+                    picBoxWordImage.Image = null;
+                    picBoxGitRepoImage.Image = null;
+                    picBoxPanel.BackColor = SystemColors.Control;
+                }));
+
                 string wordAppPath = txtWordApp.Text.Trim();
                 wordApp = new Word.Application();
                 wordDoc = wordApp.Documents.Open(wordAppPath);
@@ -231,6 +241,16 @@ namespace ExcelWordImageUploader
 
             try
             {
+                // clear the images and labels
+                BeginInvoke((Action)(() =>
+                {
+                    labelFileName.Text = string.Empty;
+                    labelWordImage.Text = string.Empty;
+                    picBoxWordImage.Image = null;
+                    picBoxGitRepoImage.Image = null;
+                    picBoxPanel.BackColor = SystemColors.Control;
+                }));
+
                 string wordAppPath = txtWordApp.Text.Trim();
                 string sheetName = comboBoxWorksheet.Text.Trim();
 
@@ -353,7 +373,7 @@ namespace ExcelWordImageUploader
                     }
                     else
                     {
-                        msgResult = MessageBox.Show(this, "Image names are sequential. Last Image Name = " + worksheet.Cells[row-1, COL_IMAGE_NAME].Text, "Continue?", MessageBoxButtons.OKCancel);
+                        msgResult = MessageBox.Show(this, "Image names are sequential. Last Image Name = " + worksheet.Cells[row - 1, COL_IMAGE_NAME].Text, "Continue?", MessageBoxButtons.OKCancel);
                         if (msgResult == DialogResult.Cancel)
                             return;
                         else
@@ -371,9 +391,9 @@ namespace ExcelWordImageUploader
 
                     if (Stop)
                     {
-                        MessageBox.Show(this, "Stopped");
                         return;
                     }
+
                     // required. stop if not found
                     string sourceImageName = worksheet.Cells[row, COL_IMAGE_NAME].Text;
                     if (string.IsNullOrWhiteSpace(sourceImageName))
@@ -561,10 +581,11 @@ namespace ExcelWordImageUploader
                 if (excelPackage != null) excelPackage.Dispose();
 
                 Console.WriteLine("Upload process completed.");
-                this.Invoke((MethodInvoker)(() =>
-                {
-                    MessageBox.Show(this, "Upload process completed.");
-                }));
+
+                if (Stop)
+                    BeginInvoke((Action)(() => MessageBox.Show(this, "Stopped")));
+                else
+                    this.Invoke((MethodInvoker)(() => MessageBox.Show(this, "Upload process completed.")));
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -584,16 +605,23 @@ namespace ExcelWordImageUploader
 
             try
             {
-                if (Stop)
+                // clear the images and labels
+                BeginInvoke((Action)(() =>
                 {
-                    MessageBox.Show(this, "Stopped");
-                    return;
-                }
+                    labelFileName.Text = string.Empty;
+                    labelWordImage.Text = string.Empty;
+                    picBoxWordImage.Image = null;
+                    picBoxGitRepoImage.Image = null;
+                    picBoxPanel.BackColor = SystemColors.Control;
+                }));
 
                 int baseImageValue = (int)comboBoxWorksheet.SelectedValue;
+                Application.DoEvents();
 
                 // Load Excel map
                 Dictionary<string, string> altTextDict = await LoadAltTextFromExcelMapAsync(excelAppPath, sheetName, baseImageValue);
+
+                if (Stop) return;
 
                 wordApp = new Word.Application();
                 wordDoc = wordApp.Documents.Open(wordAppPath);
@@ -606,8 +634,8 @@ namespace ExcelWordImageUploader
 
                 foreach (Word.Paragraph para in wordDoc.Paragraphs)
                 {
-                    if (Stop)
-                        return;
+                    Application.DoEvents();
+                    if (Stop) return;
 
                     Word.Range rng = para.Range;
                     int currentPage = rng.get_Information(Word.WdInformation.wdActiveEndPageNumber);
@@ -622,12 +650,18 @@ namespace ExcelWordImageUploader
                     string line = "";
                     for (int i = 1; i <= rng.Words.Count; i++)
                     {
+                        Application.DoEvents();
+                        if (Stop) return;
+
                         Word.Range word = rng.Words[i];
 
                         if (word.InlineShapes.Count > 0)
                         {
                             foreach (Word.InlineShape ils in word.InlineShapes)
                             {
+                                Application.DoEvents();
+                                if (Stop) return;
+
                                 if (ils.Type == Word.WdInlineShapeType.wdInlineShapePicture)
                                 {
                                     string altText = string.Empty;
@@ -689,11 +723,15 @@ namespace ExcelWordImageUploader
                 if (wordApp != null) { wordApp.Quit(); Marshal.ReleaseComObject(wordApp); }
                 GC.Collect(); GC.WaitForPendingFinalizers();
 
-                labelStatus.Text = "Export complete";
-                this.Invoke((MethodInvoker)(() =>
+                if (Stop)
                 {
-                    MessageBox.Show(this, endMessage);
-                }));
+                    BeginInvoke((Action)(() => MessageBox.Show(this, "Stopped")));
+                }
+                else
+                {
+                    BeginInvoke((Action)(() => labelStatus.Text = "Export complete"));
+                    this.Invoke((MethodInvoker)(() => MessageBox.Show(this, endMessage)));
+                }
             }
         }
         //-----------------------------------------------------------------------------------------
@@ -716,7 +754,7 @@ namespace ExcelWordImageUploader
         {
             OpenFileDialog dlg = new OpenFileDialog();
             dlg.Title = "Select Word File";
-            dlg.Filter = "Word Files (*.docm)|*.docm";
+            dlg.Filter = "Word Files (*.docx)|*.docx";
             dlg.InitialDirectory = Path.GetDirectoryName(txtExcelApp.Text);
             if (dlg.ShowDialog() == DialogResult.OK)
                 txtWordApp.Text = dlg.FileName;
@@ -962,6 +1000,7 @@ namespace ExcelWordImageUploader
         {
             var dict = new Dictionary<string, string>();
             int row;
+            Stop = false;
 
             try
             {
@@ -971,11 +1010,8 @@ namespace ExcelWordImageUploader
 
                     for (row = 2; row <= worksheet.Dimension.End.Row; row++)
                     {
-                        if (Stop)
-                        {
-                            MessageBox.Show(this, "Stopped");
-                            return dict;
-                        }
+                        if (Stop) return dict;
+
                         string image_name_key = worksheet.Cells[row, COL_IMAGE_NAME].Text; // worksheet.Cells[row, colId].Text.Trim();
                         int imageNumber = ExtractImageNumber(image_name_key);
                         string destImageNumber = (baseImageValue + imageNumber).ToString();
@@ -1021,6 +1057,14 @@ namespace ExcelWordImageUploader
             catch (Exception ex)
             {
                 MessageBox.Show(this, "Error: " + ex.Message);
+            }
+            finally
+            {
+                if (Stop)
+                {
+                    BeginInvoke((Action)(() => MessageBox.Show(this, "Stopped")));
+                    dict = null;
+                }
             }
             return dict;
         }
