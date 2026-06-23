@@ -105,10 +105,10 @@ namespace ExcelWordImageUploader
             this.Load += Form1_Load;  // Ensures Form1_Load gets called
             StartPosition = FormStartPosition.WindowsDefaultLocation;
 
-            GitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+            GitHubToken = Environment.GetEnvironmentVariable("GITHUB_IMAGES_TOKEN");
             if (string.IsNullOrWhiteSpace(GitHubToken))
             {
-                MessageBox.Show(this, "Environment variable GITHUB_TOKEN is not set.");
+                MessageBox.Show(this, "Environment variable GITHUB_IMAGES_TOKEN is not set.");
                 Environment.Exit(1);
             }
 
